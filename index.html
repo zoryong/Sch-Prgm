@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>슬기로운 학교생활</title>
+<meta name="description" content="선생님의 학교 업무를 돕는 웹 도구 모음 - 슬기로운 학교생활">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B2430;
+    --ink-soft:#57616F;
+    --line:#E2E6EB;
+    --paper:#F6F7F9;
+    --card:#FFFFFF;
+    --navy:#213863;
+    --navy-deep:#152540;
+    --teal:#0F8A82;
+    --teal-soft:#E3F4F1;
+    --amber:#C8791C;
+    --amber-soft:#FBF0DF;
+    --rose:#B8465A;
+    --rose-soft:#FBEAEC;
+    --violet:#6E56A6;
+    --violet-soft:#EEEAF7;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.5;
+    padding-bottom:60px;
+  }
+
+  /* ---------- header ---------- */
+  header{
+    background:linear-gradient(155deg,var(--navy-deep) 0%,var(--navy) 58%,#2B4C7E 100%);
+    color:#fff;
+    padding:64px 28px 72px;
+    position:relative;
+    overflow:hidden;
+  }
+  header::after{
+    content:'';
+    position:absolute;
+    right:-80px;top:-80px;
+    width:320px;height:320px;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(255,255,255,.06) 0%, rgba(255,255,255,0) 70%);
+  }
+  .header-inner{max-width:1080px;margin:0 auto;position:relative;}
+  header .eyebrow{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:#9FB3D6;font-weight:700;margin-bottom:16px;
+    padding:6px 13px;border:1px solid rgba(159,179,214,.35);border-radius:999px;
+  }
+  header h1{
+    margin:0 0 14px;
+    font-size:clamp(30px,5vw,44px);
+    font-weight:900;
+    letter-spacing:-.02em;
+  }
+  header p{
+    margin:0;color:#C7D4E8;font-size:15.5px;
+    line-height:1.7;
+  }
+  .header-meta{
+    display:flex;gap:28px;flex-wrap:wrap;margin-top:32px;
+  }
+  .header-meta .hm-item{font-size:13px;color:#9FB3D6;}
+  .header-meta .hm-item b{
+    display:block;font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#fff;margin-bottom:2px;
+  }
+
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+
+  /* ---------- category sections ---------- */
+  .category-section{margin-top:44px;}
+  .category-head{
+    display:flex;align-items:baseline;gap:10px;margin-bottom:18px;
+  }
+  .category-head .cat-icon{font-size:19px;}
+  .category-head h2{font-size:18px;font-weight:800;margin:0;color:var(--ink);letter-spacing:-.01em;}
+  .category-head .cat-count{font-size:12.5px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
+
+  .tool-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:16px;
+  }
+  @media(max-width:720px){.tool-grid{grid-template-columns:1fr;}}
+
+  .tool-card{
+    display:flex;flex-direction:column;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 22px 20px;
+    text-decoration:none;
+    color:inherit;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    position:relative;
+    overflow:hidden;
+  }
+  .tool-card::before{
+    content:'';
+    position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--card-accent, var(--teal));
+    opacity:0;transition:opacity .15s ease;
+  }
+  .tool-card:hover{
+    transform:translateY(-3px);
+    box-shadow:0 10px 28px rgba(21,37,64,.10);
+    border-color:var(--card-accent, var(--teal));
+  }
+  .tool-card:hover::before{opacity:1;}
+
+  .tc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .tc-icon{
+    width:42px;height:42px;border-radius:11px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px;
+    background:var(--card-accent-soft, var(--teal-soft));
+  }
+  .tc-tag{
+    font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;
+    color:var(--card-accent, var(--teal));background:var(--card-accent-soft, var(--teal-soft));
+  }
+  .tc-title{font-size:16.5px;font-weight:800;margin:0 0 8px;color:var(--ink);letter-spacing:-.01em;}
+  .tc-desc{font-size:13px;color:var(--ink-soft);line-height:1.6;margin:0;flex:1;word-break:keep-all;}
+  .tc-cta{
+    display:inline-flex;align-items:center;gap:5px;
+    margin-top:16px;font-size:13px;font-weight:700;color:var(--card-accent, var(--teal));
+  }
+  .tool-card:hover .tc-cta{gap:8px;}
+  .tc-cta .arrow{transition:transform .15s ease;}
+  .tool-card:hover .tc-cta .arrow{transform:translateX(2px);}
+
+  .tool-card.accent-teal{--card-accent:var(--teal);--card-accent-soft:var(--teal-soft);}
+  .tool-card.accent-violet{--card-accent:var(--violet);--card-accent-soft:var(--violet-soft);}
+  .tool-card.accent-amber{--card-accent:var(--amber);--card-accent-soft:var(--amber-soft);}
+
+  /* ---------- footer ---------- */
+  .note-box{
+    margin-top:52px;padding:16px 18px;
+    background:var(--card);border:1px dashed var(--line);border-radius:12px;
+    font-size:12.5px;color:var(--ink-soft);line-height:1.7;
+  }
+  .note-box b{color:var(--ink);}
+
+  footer.copyright{margin-top:24px;font-size:11.5px;color:#9AA2B1;text-align:center;}
+  footer.copyright .copyright-link{color:#9AA2B1;text-decoration:underline;text-underline-offset:2px;}
+  footer.copyright .copyright-link:hover{color:var(--teal);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="eyebrow">🏫 TEACHER TOOLKIT</div>
+    <h1>슬기로운 학교생활</h1>
+    <p>매일 반복되는 학교 업무를 조금 더 가볍게 만들어주는 웹 도구 모음입니다. 설치나 로그인 없이 브라우저에서 바로 사용할 수 있고, 업로드한 자료는 로컬 컴퓨터 안에서만 처리되어 외부로 전송되지 않습니다. 또, 프로그램을 다운받을 수 있도록 해두었으니 인터넷 환경이 불편한 곳에서는 다운받아 사용할 수도 있습니다.</p>
+    <div class="header-meta">
+      <div class="hm-item"><b>5</b>개 도구</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="category-section">
+    <div class="category-head">
+      <span class="cat-icon">📊</span>
+      <h2>성적 처리</h2>
+      <span class="cat-count">2개 도구</span>
+    </div>
+    <div class="tool-grid">
+      <a class="tool-card accent-teal" href="정기시험_성적_분석_프로그램__0705_.html">
+        <div class="tc-top">
+          <span class="tc-icon">📄</span>
+          <span class="tc-tag">성적 처리</span>
+        </div>
+        <h3 class="tc-title">정기시험 성적 분석 프로그램</h3>
+        <p class="tc-desc">NEIS '정기시험 교과목별 일람표'·'학생답 정오표' PDF를 올리면 회차별 통계, 절대·상대 등급, 문항분석까지 자동으로 처리합니다.</p>
+        <span class="tc-cta">열기 <span class="arrow">→</span></span>
+      </a>
+
+      <a class="tool-card accent-teal" href="학기말_성적_산출_프로그램__0705_.html">
+        <div class="tc-top">
+          <span class="tc-icon">🧮</span>
+          <span class="tc-tag">성적 처리</span>
+        </div>
+        <h3 class="tc-title">학기말 성적 산출 프로그램</h3>
+        <p class="tc-desc">정기시험·수행평가 일람표 여러 개를 반영비율에 맞춰 합산해 학생별 학기말 총점과 등급을 계산합니다.</p>
+        <span class="tc-cta">열기 <span class="arrow">→</span></span>
+      </a>
+    </div>
+  </div>
+
+  <div class="category-section">
+    <div class="category-head">
+      <span class="cat-icon">🗂️</span>
+      <h2>자료 관리</h2>
+      <span class="cat-count">2개 도구</span>
+    </div>
+    <div class="tool-grid">
+      <a class="tool-card accent-violet" href="여러_엑셀_파일_통합_프로그램_0703_.html">
+        <div class="tc-top">
+          <span class="tc-icon">📑</span>
+          <span class="tc-tag">자료 관리</span>
+        </div>
+        <h3 class="tc-title">여러 엑셀 파일 통합 프로그램</h3>
+        <p class="tc-desc">여러 개의 엑셀 파일을 업로드하면 모든 시트를 업로드 순서대로 합쳐 하나의 엑셀 파일로 내보냅니다.</p>
+        <span class="tc-cta">열기 <span class="arrow">→</span></span>
+      </a>
+
+      <a class="tool-card accent-violet" href="학생활동자료_통합프로그램__0702_.html">
+        <div class="tc-top">
+          <span class="tc-icon">🗃️</span>
+          <span class="tc-tag">자료 관리</span>
+        </div>
+        <h3 class="tc-title">학생활동자료 통합 프로그램</h3>
+        <p class="tc-desc">구글 설문 응답을 명단과 합치고, 학생별 활동 자료를 PDF·ZIP으로 자동 생성해 정리합니다.</p>
+        <span class="tc-cta">열기 <span class="arrow">→</span></span>
+      </a>
+    </div>
+  </div>
+
+  <div class="category-section">
+    <div class="category-head">
+      <span class="cat-icon">🖨️</span>
+      <h2>인쇄물 제작</h2>
+      <span class="cat-count">1개 도구</span>
+    </div>
+    <div class="tool-grid">
+      <a class="tool-card accent-amber" href="시험지_봉투_표지_생성기_0703_.html">
+        <div class="tc-top">
+          <span class="tc-icon">✉️</span>
+          <span class="tc-tag">인쇄물 제작</span>
+        </div>
+        <h3 class="tc-title">시험지 봉투 표지 생성기</h3>
+        <p class="tc-desc">엑셀 데이터를 업로드하면 시험지 봉투 표지를 A4 용지에 맞춰 자동 배치해 PDF로 만들어 줍니다.</p>
+        <span class="tc-cta">열기 <span class="arrow">→</span></span>
+      </a>
+    </div>
+  </div>
+
+  <div class="note-box">
+    💡 <b>사용 안내.</b> 각 도구는 완전히 독립적으로 동작하는 웹페이지입니다. 카드를 클릭하면 해당 프로그램으로 이동하며, 파일 업로드부터 결과 저장까지 모든 과정이 이 브라우저 안에서만 이루어집니다.
+  </div>
+
+  <footer class="copyright">Copyright © 2026 <a href="mailto:physicsgon@gmail.com" class="copyright-link">physicsgon@gmail.com</a> . All rights reserved.</footer>
+</div>
+
+</body>
+</html>
