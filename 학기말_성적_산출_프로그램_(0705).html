@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>학기말 성적 산출 프로그램</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --ink:#1B2430;
+    --ink-soft:#57616F;
+    --line:#E2E6EB;
+    --paper:#F6F7F9;
+    --card:#FFFFFF;
+    --navy:#213863;
+    --navy-deep:#152540;
+    --teal:#0F8A82;
+    --teal-soft:#E3F4F1;
+    --amber:#C8791C;
+    --amber-soft:#FBF0DF;
+    --rose:#B8465A;
+    --rose-soft:#FBEAEC;
+    --violet:#6E56A6;
+    --violet-soft:#EEEAF7;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.5;
+    padding-bottom:80px;
+  }
+  .num{font-family:'JetBrains Mono','Noto Sans KR',monospace;font-variant-numeric:tabular-nums;}
+
+  /* ---------- header ---------- */
+  header{
+    background:linear-gradient(155deg,var(--navy-deep) 0%,var(--navy) 62%,#2B4C7E 100%);
+    color:#fff;
+    padding:38px 28px 46px;
+  }
+  header .eyebrow{
+    font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:#9FB3D6;font-weight:600;margin-bottom:10px;
+  }
+  header h1{
+    margin:0 0 10px;
+    font-size:clamp(22px,4vw,30px);
+    font-weight:900;
+    letter-spacing:-.01em;
+  }
+  header p{
+    margin:0;color:#C7D4E8;font-size:14.5px;
+  }
+
+  .wrap{max-width:980px;margin:0 auto;padding:34px 18px 0;}
+
+  /* ---------- panel ---------- */
+  .panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:24px;
+    margin-bottom:18px;
+    box-shadow:0 1px 2px rgba(21,37,64,.04);
+  }
+
+  /* ---------- rail-style step header ---------- */
+  .rail-step{
+    display:grid;
+    grid-template-columns:40px 1fr;
+    gap:0 16px;
+    margin:30px 0 16px;
+  }
+  .rail-step.first{margin-top:10px;}
+  .rail-step .rail-col{display:flex;flex-direction:column;align-items:center;}
+  .rail-step .num-badge{
+    width:38px;height:38px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13.5px;
+    border:1.5px solid var(--line);
+    color:var(--ink-soft);
+    background:#fff;
+    flex:0 0 auto;
+  }
+  .rail-step.active .num-badge{border-color:var(--teal);color:var(--teal);background:var(--teal-soft);}
+  .rail-step.amber .num-badge{border-color:var(--amber);color:var(--amber);background:var(--amber-soft);}
+  .rail-step.rose .num-badge{border-color:var(--rose);color:var(--rose);background:var(--rose-soft);}
+  .rail-step .rail-line{flex:1;width:1.5px;background:var(--line);margin-top:4px;min-height:14px;}
+  .rail-step .rail-body h2{display:block;font-size:19px;font-weight:800;margin:2px 0 4px;color:var(--ink);letter-spacing:-.01em;}
+  .rail-step .rail-body .rail-desc{font-size:13.5px;color:var(--ink-soft);margin:0;line-height:1.55;}
+
+  /* ---------- usage guide panel ---------- */
+  .guide-panel{
+    border:1px solid var(--line);border-radius:14px;background:var(--card);
+    margin-bottom:8px;overflow:hidden;
+    box-shadow:0 1px 3px rgba(20,30,50,.04);
+  }
+  .guide-toggle{
+    width:100%;display:flex;align-items:center;gap:12px;
+    padding:16px 20px;cursor:pointer;background:none;border:none;
+    font-family:inherit;text-align:left;
+  }
+  .guide-toggle .gt-icon{
+    font-size:15px;width:32px;height:32px;border-radius:50%;
+    background:var(--teal-soft);display:flex;align-items:center;justify-content:center;
+    flex:0 0 auto;
+  }
+  .guide-toggle .gt-title{font-size:15px;font-weight:800;color:var(--ink);flex:1;}
+  .guide-toggle .gt-hint{font-size:12.5px;color:var(--ink-soft);}
+  .guide-toggle .gt-arrow{font-size:11px;color:var(--ink-soft);transition:.2s transform;flex:0 0 auto;}
+  .guide-panel.open .gt-arrow{transform:rotate(180deg);}
+  .guide-body{display:none;padding:0 20px 20px;border-top:1px solid var(--line);}
+  .guide-panel.open .guide-body{display:block;}
+
+  .guide-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:18px;}
+  .guide-step{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 15px;}
+  .guide-step .gs-num{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:800;color:var(--teal);letter-spacing:.08em;margin-bottom:6px;}
+  .guide-step .gs-title{font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:7px;}
+  .guide-step .gs-body{font-size:12.5px;color:var(--ink-soft);line-height:1.65;word-break:keep-all;}
+  .guide-step .gs-body b{color:var(--ink);}
+
+  .guide-tip{margin-top:14px;padding:13px 16px;background:var(--teal-soft);border-radius:10px;font-size:12.5px;color:var(--ink-soft);line-height:1.65;word-break:keep-all;}
+  .guide-tip b{color:var(--teal);}
+
+  /* ---------- dropzone ---------- */
+  .dropzone{
+    border:1.5px dashed #B9C4D4;border-radius:12px;padding:26px 18px;text-align:center;cursor:pointer;
+    background:#FAFBFC;transition:border-color .15s, background .15s;
+  }
+  .dropzone:hover, .dropzone.drag{border-color:var(--teal);background:var(--teal-soft);}
+  .dropzone .icon{font-size:26px;margin-bottom:6px;}
+  .dropzone .main-txt{font-size:14.5px;font-weight:600;color:var(--ink);}
+  .dropzone .sub-txt{font-size:12.5px;color:var(--ink-soft);margin-top:3px;}
+  input[type=file]{display:none;}
+
+  .file-list{margin-top:14px;display:flex;flex-direction:column;gap:8px;}
+  .file-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#FAFBFC;border:1px solid var(--line);border-radius:9px;font-size:13.5px;}
+  .file-item .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-item .fmeta{color:var(--ink-soft);font-size:12px;flex-shrink:0;}
+  .file-item .rm{cursor:pointer;color:var(--rose);border:none;background:none;font-size:15px;font-weight:700;padding:2px 6px;border-radius:6px;}
+  .file-item .rm:hover{background:var(--rose-soft);}
+
+  .field-row{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-top:18px;}
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field label{font-size:13px;font-weight:600;color:var(--ink);}
+  .field .hint{font-size:11.5px;color:var(--ink-soft);}
+  .field input[type=number]{
+    width:170px;padding:10px 12px;border:1px solid #C7CEDA;border-radius:9px;
+    font-size:15px;font-family:'JetBrains Mono',monospace;
+  }
+  .field input[type=number]:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+
+  .program-download-row{display:flex;justify-content:flex-end;margin-bottom:12px;}
+
+  .btn{
+    appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:14.5px;
+    padding:12px 22px;border-radius:10px;background:var(--navy);color:#fff;
+    transition:transform .08s, background .15s, opacity .15s;
+  }
+  .btn:hover:not(:disabled){background:var(--navy-deep);}
+  .btn:active:not(:disabled){transform:scale(.98);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn.ghost{background:#fff;color:var(--navy);border:1.5px solid #C7CEDA;}
+  .btn.ghost:hover:not(:disabled){background:#F1F4F8;}
+  .btn.ghost.active{background:var(--violet);color:#fff;border-color:var(--violet);}
+  .btn.ghost.active:hover{background:var(--violet);}
+  .btn.sm{padding:8px 14px;font-size:13px;border-radius:8px;}
+
+  .item-sort-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+
+  .status{margin-top:14px;font-size:13.5px;color:var(--ink-soft);display:none;align-items:center;gap:8px;}
+  .status.show{display:flex;}
+  .spinner{width:15px;height:15px;border-radius:50%;border:2.5px solid #C7CEDA;border-top-color:var(--teal);animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .warn-box{margin-top:12px;padding:11px 14px;background:var(--amber-soft);border:1px solid #EBCF9C;border-radius:9px;font-size:12.5px;color:#7A5211;white-space:pre-line;}
+  .err-box{margin-top:12px;padding:11px 14px;background:var(--rose-soft);border:1px solid #E6B7C0;border-radius:9px;font-size:12.5px;color:#7A2334;white-space:pre-line;}
+  .note-box{margin-top:14px;font-size:12px;color:var(--ink-soft);background:#FAFBFC;border:1px dashed #C7CEDA;border-radius:9px;padding:10px 12px;line-height:1.6;}
+
+  /* ---------- sections ---------- */
+  #configSection, #resultSection{display:none;}
+  #configSection.show, #resultSection.show{display:block;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  @media(max-width:640px){.stat-grid{grid-template-columns:repeat(1,1fr);}}
+
+  .control-groups{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:18px 0;}
+  .control-row{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;}
+  .control-divider{width:1px;align-self:stretch;background:var(--line);display:none;}
+  @media(min-width:900px){.control-divider{display:block;}}
+  .control-label{font-size:12.5px;font-weight:700;color:var(--ink-soft);white-space:nowrap;flex:0 0 auto;}
+
+  .achieve-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;max-width:640px;}
+  .achieve-row .ag-label{
+    width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:12.5px;color:#fff;flex:0 0 auto;
+  }
+  .achieve-row .ag-bar-track{flex:1;background:#F0F2F5;border-radius:6px;height:20px;overflow:hidden;min-width:60px;}
+  .achieve-row .ag-bar-fill{height:100%;border-radius:6px;transition:width .3s ease;}
+  .achieve-row .ag-meta{width:110px;flex:0 0 auto;font-size:12px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;text-align:right;}
+  .stat-card{background:#FAFBFC;border:1px solid var(--line);border-radius:12px;padding:16px 14px;}
+  .stat-card .lbl{font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:6px;}
+  .stat-card .val{font-size:24px;font-weight:800;color:var(--navy);}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{padding:9px 10px;text-align:center;border-bottom:1px solid var(--line);}
+  thead th{background:#F2F4F7;color:var(--ink-soft);font-weight:700;font-size:12px;letter-spacing:.02em;white-space:nowrap;}
+  tbody tr:hover{background:#FAFBFC;}
+  tbody tr:last-child td{border-bottom:none;}
+  td.name-cell, th.name-cell{text-align:left;font-weight:600;}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  td.emph{font-weight:800;color:var(--navy);}
+
+  .section-title{font-size:15px;font-weight:800;margin:0 0 3px;display:flex;align-items:center;gap:8px;}
+  .section-sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;}
+
+  .footer-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;}
+
+  footer.copyright{margin-top:18px;font-size:11.5px;color:#9AA2B1;text-align:center;}
+  footer.copyright .copyright-link{color:#9AA2B1;text-decoration:underline;text-underline-offset:2px;}
+  footer.copyright .copyright-link:hover{color:var(--teal);}
+
+  /* ---------- config table (반영비율) ---------- */
+  #configTable{table-layout:fixed;}
+  #configTable thead th{
+    white-space:normal;word-break:break-all;overflow-wrap:break-word;
+    font-size:11px;line-height:1.4;
+  }
+  #configTable th.col-exam{color:var(--navy);}
+  #configTable th.col-perf{color:var(--violet);}
+  #configTable td.auto-cell{background:var(--teal-soft);}
+  #configTable td.name-cell, #configTable th.name-cell{
+    white-space:nowrap;word-break:keep-all;width:118px;max-width:118px;min-width:118px;
+  }
+  #configTable input[type=text], #configTable input[type=number]{
+    width:100%;min-width:70px;padding:7px 8px;border:1px solid #C7CEDA;border-radius:7px;
+    font-size:12.5px;font-family:'JetBrains Mono','Noto Sans KR',monospace;text-align:center;background:#fff;
+  }
+  #configTable textarea{
+    width:100%;min-width:70px;padding:7px 8px;border:1px solid #C7CEDA;border-radius:7px;
+    font-size:12.5px;font-family:'Noto Sans KR',sans-serif;text-align:center;background:#fff;
+    resize:none;line-height:1.35;word-break:keep-all;overflow-wrap:break-word;
+  }
+  #configTable input:focus, #configTable textarea:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+  #configTable td.static-cell{color:var(--ink-soft);font-size:12px;font-style:italic;}
+  .eval-badge{display:inline-block;padding:3px 10px;border-radius:7px;font-size:11.5px;font-weight:700;white-space:nowrap;}
+  .eval-badge.exam{background:var(--teal-soft);color:var(--teal);}
+  .eval-badge.perf{background:var(--violet-soft);color:var(--violet);}
+
+  /* ---------- result table ---------- */
+  #resultTable thead th{white-space:normal;word-break:keep-all;overflow-wrap:break-word;line-height:1.3;max-width:120px;}
+  td.absent-cell{color:var(--ink-soft);font-style:italic;font-size:12px;}
+  tr.grade-boundary td{border-bottom:1.5px dashed #B9C4D4;}
+  .grade-pill{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:24px;height:24px;border-radius:7px;font-weight:800;font-size:12.5px;color:#fff;
+  }
+  input.name-input{
+    width:100%;min-width:76px;padding:7px 9px;border:1px solid #E2E6EB;border-radius:7px;
+    font-size:13px;font-family:'Noto Sans KR',sans-serif;text-align:left;background:#fff;
+  }
+  input.name-input:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+
+  @media print{
+    .no-print{display:none !important;}
+    header{background:#213863 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    body{padding-bottom:0;}
+    .wrap{max-width:none;padding:0 10px;}
+    .panel{box-shadow:none;border:1px solid #ccc;break-inside:avoid;padding:14px 10px;}
+    #configSection, #resultSection{display:block !important;}
+    .table-scroll{overflow:visible !important;}
+    @page{margin:10mm 8mm;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">슬기로운 학교생활</div>
+  <h1>학기말 성적 산출 프로그램</h1>
+  <p>NEIS에서 받은 '정기시험 교과목별 일람표'와 '수행평가 교과목별 일람표' PDF를 올리면 학기말 성적 처리를 합니다. 모든 처리는 로컬 컴퓨터에서 이루어지며, 외부로 전송되지 않습니다.</p>
+</header>
+
+<div class="wrap">
+
+  <div class="program-download-row no-print">
+    <button class="btn ghost sm" id="downloadProgramBtn" type="button">⬇️ 이 프로그램 다운받기</button>
+  </div>
+
+  <div class="guide-panel no-print" id="guidePanel">
+    <button class="guide-toggle" id="guideToggle" type="button">
+      <span class="gt-icon">📖</span>
+      <span class="gt-title">사용 방법</span>
+      <span class="gt-hint">처음 사용하신다면 클릭해서 확인하세요</span>
+      <span class="gt-arrow">▼</span>
+    </button>
+    <div class="guide-body">
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="gs-num">STEP 01</div>
+          <div class="gs-title">파일 업로드 및 인식</div>
+          <div class="gs-body">정기시험·수행평가 '교과목별 일람표' PDF를 모두 올리고 <b>[인식하기]</b>를 누르세요. 평가 종류·시기/영역·영역만점이 자동으로 채워집니다. '교과시간출석부' PDF를 함께 올리면 학생 이름도 자동으로 매칭됩니다.</div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num">STEP 02</div>
+          <div class="gs-title">반영비율 · 우선순위 확인</div>
+          <div class="gs-body">자동 인식값이 틀렸다면 직접 고치세요. 정기시험은 반영비율(%), 수행평가는 우선순위를 입력한 뒤 수강생 수를 넣고 <b>[학기말 성적 처리하기]</b>를 누르세요.</div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num">STEP 03</div>
+          <div class="gs-title">결과 확인 및 내보내기</div>
+          <div class="gs-body">학번순·총점순 정렬 버튼과 CSV 내보내기를 지원합니다. 총점순 정렬에서는 상대 등급 경계마다 옅은 점선으로 구분됩니다.</div>
+        </div>
+      </div>
+      <div class="guide-tip">
+        💡 <b>총점 계산 방식.</b> 정기시험은 (원점수 × 반영비율)을 모두 더하고, 수행평가는 원점수를 그대로 더합니다. 일부 자료가 없는 학생은 해당 항목만 '결시'로 표시되고 총점 계산에서 제외됩니다.<br><br>
+        💡 <b>모든 처리는 이 브라우저 안에서만</b> 이루어지며, 업로드한 PDF와 계산 결과는 외부로 전송되지 않습니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 1: upload -->
+  <div class="rail-step active first">
+    <div class="rail-col"><div class="num-badge">01</div><div class="rail-line"></div></div>
+    <div class="rail-body">
+      <h2>파일 업로드 및 인식</h2>
+      <p class="rail-desc">'정기시험 교과목별 일람표'와 '수행평가 교과목별 일람표' PDF를 모두 올린 뒤 [인식하기]를 눌러주세요. '교과시간 출석부' PDF를 함께 올리면 학생 이름도 자동으로 매칭됩니다.</p>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="dropzone" id="dropzone">
+      <div class="icon">📄</div>
+      <div class="main-txt">클릭하거나 파일을 끌어다 놓으세요.</div>
+      <div class="sub-txt">PDF 파일 · 정기시험/수행평가 교과목별 일람표 + 교과시간 출석부</div>
+      <input type="file" id="fileInput" accept="application/pdf" multiple>
+    </div>
+
+    <div class="file-list" id="fileList"></div>
+    <div class="err-box no-print" id="fileErr" style="display:none;"></div>
+
+    <div class="field-row">
+      <button class="btn" id="recognizeBtn" disabled>인식하기</button>
+      <button class="btn ghost" id="resetBtn">초기화</button>
+    </div>
+
+    <div class="status" id="statusBox"><div class="spinner"></div><span id="statusText">인식 중...</span></div>
+    <div class="note-box no-print" id="infoBox" style="display:none;"></div>
+    <div class="warn-box no-print" id="warnBox" style="display:none;"></div>
+  </div>
+
+  <!-- STEP 2: config -->
+  <div id="configSection">
+    <div class="rail-step amber">
+      <div class="rail-col"><div class="num-badge">02</div><div class="rail-line"></div></div>
+      <div class="rail-body">
+        <h2>반영비율 · 우선순위 입력</h2>
+        <p class="rail-desc">색이 칠해진 칸은 PDF에서 자동으로 인식한 값입니다. 잘못 인식되었다면 직접 수정하세요.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="section-title">반영비율</p>
+      <p class="section-sub">정기시험은 반영비율(%)을 입력하세요. 수행평가는 원점수를 그대로 더하는 대신, 아래 '우선순위'로 표에 나열되는 순서와 동점자 비교 순서를 정합니다.</p>
+      <div class="table-scroll"><table id="configTable"></table></div>
+      <div class="note-box">총점 = Σ(정기시험 원점수 × 반영비율) + Σ(수행평가 원점수). 우선순위 1번 수행평가가 표의 가장 왼쪽에 오고, 총점이 같은 학생은 우선순위 1번 점수가 높은 쪽이 위로 정렬됩니다.</div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="enrolledInput">수강생 수 (재적 인원)</label>
+          <input type="number" id="enrolledInput" min="0" placeholder="예: 152">
+          <div class="hint">결시자를 포함한 전체 재적 인원 · 등급 산출 기준 인원 · 비워두면 인식된 학생 수를 자동으로 사용합니다</div>
+        </div>
+        <button class="btn" id="processBtn" type="button">학기말 성적 처리하기</button>
+      </div>
+      <div class="err-box no-print" id="configErr" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- STEP 3: results -->
+  <div id="resultSection">
+    <div class="rail-step rose">
+      <div class="rail-col"><div class="num-badge">03</div></div>
+      <div class="rail-body">
+        <h2>학기말 성적 결과</h2>
+        <p class="rail-desc">반·번호를 기준으로 매칭한 학생별 총점과 등급입니다.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="lbl">수강생 (재적 인원)</div><div class="val num" id="resEnrolled">-</div></div>
+        <div class="stat-card"><div class="lbl">성적 확인된 학생</div><div class="val num" id="resMatched">-</div></div>
+        <div class="stat-card"><div class="lbl">전체 평균</div><div class="val num" id="resAvg">-</div></div>
+      </div>
+
+      <div class="control-groups no-print">
+        <div class="control-row">
+          <span class="control-label">정렬 방식</span>
+          <button class="btn ghost sm active" id="sortTotalBtn" type="button">총점 순 정렬</button>
+          <button class="btn ghost sm" id="sortIdBtn" type="button">학번 순 정렬</button>
+        </div>
+        <span class="control-divider"></span>
+        <div class="control-row">
+          <span class="control-label">상대 등급별 성적</span>
+          <button class="btn ghost sm active" id="grade5Btn" type="button">5등급</button>
+          <button class="btn ghost sm" id="grade9Btn" type="button">9등급</button>
+        </div>
+        <span class="control-divider"></span>
+        <div class="control-row">
+          <span class="control-label">성취 등급별 성적</span>
+          <button class="btn ghost sm active" id="achieve5Btn" type="button">5단계</button>
+          <button class="btn ghost sm" id="achieve3Btn" type="button">3단계</button>
+        </div>
+      </div>
+
+      <div class="achieve-dist-wrap">
+        <p class="section-title" style="margin-top:20px;">성취 등급별 점수 분포</p>
+        <p class="section-sub" id="achieveDistSub"></p>
+        <div id="achieveChart"></div>
+      </div>
+
+      <div class="table-scroll" style="margin-top:24px;"><table id="resultTable"></table></div>
+
+      <div class="footer-actions no-print">
+        <button class="btn ghost sm" id="csvBtn" type="button">CSV로 내보내기</button>
+        <button class="btn ghost sm" id="printBtn" type="button">인쇄 / PDF로 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="copyright">Copyright © 2026 <a href="mailto:physicsgon@gmail.com" class="copyright-link">physicsgon@gmail.com</a> . All rights reserved.</footer>
+
+</div>
+
+<script>
+// 페이지가 로드된 시점(어떤 사용자 조작도 일어나기 전)의 원본 HTML을 미리 캡처해 둔다.
+// 처리 결과가 화면에 그려진 뒤의 상태가 아니라, 항상 '깨끗한' 최초 상태를 다운로드하기 위함.
+const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const MAX_FILES = 100;
+const GRADE_CUM_5 = [0.10, 0.34, 0.66, 0.90, 1.00];
+const GRADE_COLORS_5 = ['#0F8A82','#2F8F5B','#3F7FBF','#C8791C','#B8465A'];
+const GRADE_CUM_9 = [0.04, 0.11, 0.23, 0.40, 0.60, 0.77, 0.89, 0.96, 1.00];
+const GRADE_COLORS_9 = ['#0F8A82','#2F8F5B','#5B9C4F','#8CA23C','#C8A61C','#C8791C','#C2601C','#B8465A','#8E3550'];
+
+const ACHIEVE_5 = [
+  { grade: 'A', min: 90 },
+  { grade: 'B', min: 80 },
+  { grade: 'C', min: 70 },
+  { grade: 'D', min: 60 },
+  { grade: 'E', min: -Infinity },
+];
+const ACHIEVE_3 = [
+  { grade: 'A', min: 80 },
+  { grade: 'B', min: 60 },
+  { grade: 'C', min: -Infinity },
+];
+const ACHIEVE_COLORS_5 = GRADE_COLORS_5;
+const ACHIEVE_COLORS_3 = ['#0F8A82','#C8791C','#B8465A'];
+
+function computeAchieveGrade(total, table){
+  for (const g of table) if (total >= g.min) return g.grade;
+  return table[table.length - 1].grade;
+}
+
+let uploadedFiles = []; // {id, file}
+let fileIdSeq = 0;
+let colIdSeq = 0;
+let recognizedCols = []; // [{id, fileName, evalType, label, maxScore, ratio, priority, grid:{students}}]
+let nameByKey = new Map(); // "반-번호" -> 성명 (교과시간출석부에서 인식)
+let studentRecords = []; // after processing: [{hr, sn, name, scores:{colId:score}, total, grade}]
+let currentSort = 'total';
+let gradeMode = '5';
+let achieveMode = '5';
+
+const fileInput = document.getElementById('fileInput');
+const dropzone = document.getElementById('dropzone');
+const fileListEl = document.getElementById('fileList');
+const fileErrEl = document.getElementById('fileErr');
+const recognizeBtn = document.getElementById('recognizeBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statusBox = document.getElementById('statusBox');
+const statusText = document.getElementById('statusText');
+const warnBox = document.getElementById('warnBox');
+const infoBox = document.getElementById('infoBox');
+
+const configSection = document.getElementById('configSection');
+const configTable = document.getElementById('configTable');
+const configErr = document.getElementById('configErr');
+const enrolledInput = document.getElementById('enrolledInput');
+const processBtn = document.getElementById('processBtn');
+
+const resultSection = document.getElementById('resultSection');
+const resultTable = document.getElementById('resultTable');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+  addFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => { addFiles(e.target.files); fileInput.value=''; });
+
+function addFiles(fileListLike){
+  const incoming = Array.from(fileListLike).filter(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+  const rejected = Array.from(fileListLike).length - incoming.length;
+  let msg = '';
+  if (rejected > 0) msg += `PDF가 아닌 파일 ${rejected}개는 제외되었습니다. `;
+  for (const f of incoming) {
+    if (uploadedFiles.length >= MAX_FILES) { msg += `최대 ${MAX_FILES}개까지만 업로드할 수 있습니다.`; break; }
+    uploadedFiles.push({ id: ++fileIdSeq, file: f });
+  }
+  fileErrEl.style.display = msg ? 'block' : 'none';
+  fileErrEl.textContent = msg;
+  renderFileList();
+}
+
+function renderFileList(){
+  fileListEl.innerHTML = uploadedFiles.map(item => `
+    <div class="file-item" data-id="${item.id}">
+      <span class="fname">📄 ${escapeHtml(item.file.name)}</span>
+      <span class="fmeta">${(item.file.size/1024).toFixed(0)} KB</span>
+      <button class="rm" data-rm="${item.id}" title="제거">✕</button>
+    </div>
+  `).join('');
+  fileListEl.querySelectorAll('[data-rm]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.getAttribute('data-rm'));
+      uploadedFiles = uploadedFiles.filter(f => f.id !== id);
+      renderFileList();
+    });
+  });
+  recognizeBtn.disabled = uploadedFiles.length === 0;
+}
+
+resetBtn.addEventListener('click', () => {
+  uploadedFiles = [];
+  recognizedCols = [];
+  nameByKey = new Map();
+  studentRecords = [];
+  renderFileList();
+  fileErrEl.style.display = 'none';
+  warnBox.style.display = 'none';
+  infoBox.style.display = 'none';
+  configSection.classList.remove('show');
+  resultSection.classList.remove('show');
+  enrolledInput.value = '';
+  enrolledInput.placeholder = '예: 152';
+});
+
+document.getElementById('guideToggle').addEventListener('click', () => {
+  document.getElementById('guidePanel').classList.toggle('open');
+});
+
+document.getElementById('downloadProgramBtn').addEventListener('click', () => {
+  const blob = new Blob([ORIGINAL_HTML], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '학기말_성적_산출_프로그램.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+});
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(s){ return escapeHtml(s); }
+
+/* ============================================================
+   PDF TEXT EXTRACTION -> LINES  (기존 정기시험 성적 분석 프로그램과 동일한 방식)
+   ============================================================ */
+function groupLines(items){
+  const sorted = items.slice().sort((a,b) => b.y - a.y || a.x - b.x);
+  const lines = [];
+  let current = null;
+  for (const it of sorted) {
+    if (!current || Math.abs(current.y - it.y) > 1.0) {
+      current = { y: it.y, items: [] };
+      lines.push(current);
+    }
+    current.items.push(it);
+  }
+  lines.sort((a,b) => b.y - a.y);
+  for (const l of lines) {
+    l.items = l.items.filter(it => it.str.trim().length > 0);
+    l.items.sort((a,b) => a.x - b.x);
+  }
+  return lines.filter(l => l.items.length > 0);
+}
+function joinTokens(tokenItems){
+  return tokenItems.map(i => i.str).join(' ').replace(/\s+/g,' ').trim();
+}
+async function extractPageLines(page){
+  const content = await page.getTextContent();
+  const items = content.items.map(it => ({ x: it.transform[4], y: it.transform[5], str: it.str }));
+  return groupLines(items);
+}
+
+/* ============================================================
+   PARSE ONE PAGE: 평가종류 / 시기·영역 / 영역만점 + 반별 점수 그리드
+   ============================================================ */
+function parseScoreGrid(tokenLines){
+  let colLineIdx = -1;
+  for (let i = 0; i < tokenLines.length; i++) {
+    const toks = tokenLines[i].items;
+    if (toks.length >= 2 && toks.every(t => /^\d+$/.test(t.str))) { colLineIdx = i; break; }
+  }
+  if (colLineIdx === -1) return null;
+
+  let confirmed = false;
+  for (let i = colLineIdx + 1; i <= Math.min(colLineIdx + 2, tokenLines.length - 1); i++) {
+    if (joinTokens(tokenLines[i].items).replace(/\s+/g,'') === '번호') { confirmed = true; break; }
+  }
+  if (!confirmed) return null;
+
+  const columns = tokenLines[colLineIdx].items.map(t => ({ label: t.str, x: t.x }));
+  function nearestCol(x){
+    let best = null, bestD = Infinity;
+    for (const c of columns) { const d = Math.abs(c.x - x); if (d < bestD) { bestD = d; best = c; } }
+    return best;
+  }
+
+  const students = []; // {hr, sn, score}
+  for (let i = colLineIdx + 1; i < tokenLines.length; i++) {
+    const toks = tokenLines[i].items;
+    const joined = joinTokens(toks);
+    if (/^응시생수/.test(joined)) break;
+    if (toks.length < 2) continue;
+    if (!/^\d+$/.test(toks[0].str)) continue;
+    const seatIdx = toks[0].str;
+    for (let k = 1; k < toks.length; k++) {
+      const val = parseFloat(toks[k].str);
+      if (isNaN(val)) continue;
+      const col = nearestCol(toks[k].x);
+      students.push({ hr: col.label, sn: seatIdx, score: val });
+    }
+  }
+  return { students };
+}
+
+// 교과시간별출석부: 연번/학년/학과/반/번호/성명 목록에서 반-번호-이름을 추출
+function parseAttendanceRoster(tokenLines){
+  const joined = tokenLines.map(tl => joinTokens(tl.items));
+  const flatText = joined.join('').replace(/\s+/g, '');
+  if (!flatText.includes('교과시간별출석부') && !flatText.includes('교과시간출석부')) return null;
+
+  let headerIdx = -1;
+  for (let i = 0; i < joined.length; i++) {
+    const j = joined[i].replace(/\s+/g, '');
+    if (j.includes('연번') && j.includes('성명')) { headerIdx = i; break; }
+  }
+  if (headerIdx === -1) return null;
+
+  const students = [];
+  for (let i = headerIdx + 1; i < joined.length; i++) {
+    const line = joined[i].trim();
+    if (!line) continue;
+    if (/^담당교사/.test(line)) break;
+    if (/^\(.*\)$/.test(line)) continue;   // 단독 "(공동)" 표기 줄
+    if (/^\[.*\]/.test(line)) continue;    // [월 6] 등 시간표 줄
+
+    const m = line.match(/^(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s*(.*)$/);
+    if (!m) continue;
+    const hr = m[4], sn = m[5];
+    let name = m[6].trim().replace(/\(공동\)\s*$/, '').trim();
+
+    if (!name) {
+      const next = (joined[i + 1] || '').trim();
+      const looksLikeRow = /^\d+\s+\d+\s+\S+\s+\d+\s+\d+/.test(next);
+      const looksLikeNoise = /^\(.*\)$/.test(next) || /^담당교사/.test(next) || /^\[.*\]/.test(next) || next === '';
+      if (!looksLikeRow && !looksLikeNoise) name = next;
+    }
+    if (hr && sn && name) students.push({ hr, sn, name });
+  }
+  return students.length ? { students } : null;
+}
+
+function parseEvalFile(tokenLines){
+  const joinedLines = tokenLines.map(tl => joinTokens(tl.items));
+  const fullText = joinedLines.join('\n');
+
+  let evalType = null;
+  if (fullText.includes('정기시험 교과목별 일람표')) evalType = 'exam';
+  else if (fullText.includes('수행평가 교과목별 일람표')) evalType = 'perf';
+
+  let label = null, maxScore = null;
+
+  if (evalType === 'exam') {
+    for (const line of joinedLines) {
+      const m = line.match(/고사\s*:\s*(\d+)\s*차\s*정기시험/);
+      if (m) { label = m[1] + '차'; break; }
+    }
+    for (const line of joinedLines) {
+      const m = line.match(/만점\s*:\s*([\d.]+)/);
+      if (m) { maxScore = parseFloat(m[1]); break; }
+    }
+  } else if (evalType === 'perf') {
+    for (const line of joinedLines) {
+      const m = line.match(/영\s*역\s*:\s*(.+?)\s*영역만점\s*:\s*([\d.]+)/);
+      if (m) { label = m[1].trim(); maxScore = parseFloat(m[2]); break; }
+    }
+  }
+
+  const grid = evalType ? parseScoreGrid(tokenLines) : null;
+  return { evalType, label, maxScore, grid };
+}
+
+/* ============================================================
+   STEP 1 -> STEP 2 : 인식하기
+   ============================================================ */
+recognizeBtn.addEventListener('click', runRecognize);
+
+async function runRecognize(){
+  if (uploadedFiles.length === 0) return;
+  warnBox.style.display = 'none';
+  infoBox.style.display = 'none';
+  statusBox.classList.add('show');
+  recognizeBtn.disabled = true;
+  configSection.classList.remove('show');
+  resultSection.classList.remove('show');
+
+  const cols = [];
+  const failures = [];
+  const detectionLog = [];
+  let newNameCount = 0;
+
+  try {
+    for (const item of uploadedFiles) {
+      statusText.textContent = `인식 중... (${item.file.name})`;
+      try {
+        const buf = await item.file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        let found = false;
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const tokenLines = await extractPageLines(page);
+
+          const parsed = parseEvalFile(tokenLines);
+          if (parsed.evalType && parsed.grid && parsed.grid.students.length) {
+            found = true;
+            const id = 'f' + (++colIdSeq);
+            cols.push({
+              id,
+              fileName: item.file.name,
+              evalType: parsed.evalType,
+              label: parsed.label || (parsed.evalType === 'exam' ? '차수 확인 필요' : '영역명 확인 필요'),
+              maxScore: parsed.maxScore != null ? parsed.maxScore : (parsed.evalType === 'exam' ? 100 : null),
+              ratio: '',
+              priority: null,
+              grid: parsed.grid,
+            });
+            detectionLog.push(`${item.file.name} p${p}: ${parsed.evalType === 'exam' ? '정기시험' : '수행평가'} · ${parsed.label || '(인식 실패)'} · ${parsed.grid.students.length}건 인식`);
+            continue;
+          }
+
+          const roster = parseAttendanceRoster(tokenLines);
+          if (roster && roster.students.length) {
+            found = true;
+            roster.students.forEach(s => nameByKey.set(s.hr + '-' + s.sn, s.name));
+            newNameCount += roster.students.length;
+            detectionLog.push(`${item.file.name} p${p}: 교과시간출석부 · ${roster.students.length}명 이름 인식`);
+          }
+        }
+        if (!found) failures.push(`${item.file.name}: 정기시험/수행평가 일람표 또는 교과시간출석부 형식을 인식하지 못했습니다.`);
+      } catch (err) {
+        failures.push(`${item.file.name}: ${err.message || err}`);
+      }
+    }
+
+    if (cols.length === 0) {
+      throw new Error(newNameCount > 0
+        ? '교과시간출석부에서 이름은 인식했지만, 정기시험/수행평가 성적 데이터가 없습니다. 성적 파일도 함께 업로드해 주세요.'
+        : '업로드한 PDF에서 성적 데이터를 인식하지 못했습니다. 파일 형식을 확인해 주세요.');
+    }
+
+    // 수행평가 우선순위 기본값: 인식된 순서대로 1,2,3...
+    let pSeq = 0;
+    for (const c of cols) if (c.evalType === 'perf') c.priority = ++pSeq;
+
+    // 정기시험 반영비율 기본값: {100 - (수행평가 영역만점 총합)} / (정기시험 차수 수)
+    const examColsTmp = cols.filter(c => c.evalType === 'exam');
+    const perfColsTmp = cols.filter(c => c.evalType === 'perf');
+    if (examColsTmp.length > 0) {
+      const perfMaxSum = perfColsTmp.reduce((sum, c) => sum + (c.maxScore || 0), 0);
+      const defaultRatio = Math.round(((100 - perfMaxSum) / examColsTmp.length) * 100) / 100;
+      for (const c of examColsTmp) c.ratio = String(defaultRatio);
+    }
+
+    recognizedCols = cols;
+
+    // 수강생 수(재적 인원) 예시값: 인식된 자료에 등장하는 학생(반-번호) 수 기준
+    const estimated = estimateEnrolled();
+    enrolledInput.placeholder = estimated > 0 ? `예: ${estimated} (인식된 학생 수 기준, 비워두면 자동 사용)` : '예: 152';
+
+    if (failures.length) {
+      warnBox.style.display = 'block';
+      warnBox.textContent = '일부 파일을 인식하지 못했습니다: ' + failures.join(' / ');
+    }
+    if (detectionLog.length) {
+      infoBox.style.display = 'block';
+      const summary = newNameCount > 0 ? [`교과시간출석부에서 총 ${newNameCount}명의 이름을 인식했습니다.`] : [];
+      infoBox.textContent = '인식 결과\n' + [...summary, ...detectionLog].join('\n');
+    }
+
+    renderConfigTable();
+    configSection.classList.add('show');
+    configSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    warnBox.style.display = 'block';
+    warnBox.textContent = '오류: ' + (err.message || err);
+  } finally {
+    statusBox.classList.remove('show');
+    recognizeBtn.disabled = false;
+  }
+}
+
+/* ============================================================
+   반영비율 표
+   ============================================================ */
+function estimateEnrolled(){
+  const keys = new Set();
+  for (const c of recognizedCols) {
+    for (const s of c.grid.students) keys.add(s.hr + '-' + s.sn);
+  }
+  return keys.size;
+}
+
+// 정기시험(차수 오름차순)이 항상 앞에, 수행평가(인식 순서)가 뒤에 오도록 고정 표시 순서
+function getConfigDisplayOrder(cols){
+  const examCols = cols.filter(c => c.evalType === 'exam').sort((a,b) => {
+    const na = parseInt(a.label, 10), nb = parseInt(b.label, 10);
+    const va = isNaN(na) ? Infinity : na, vb = isNaN(nb) ? Infinity : nb;
+    return va - vb;
+  });
+  const perfCols = cols.filter(c => c.evalType === 'perf');
+  return [...examCols, ...perfCols];
+}
+
+function renderConfigTable(){
+  const cols = getConfigDisplayOrder(recognizedCols);
+
+  let thead = '<thead><tr><th class="name-cell">구분</th>';
+  for (const c of cols) thead += `<th class="${c.evalType === 'exam' ? 'col-exam' : 'col-perf'}">${escapeHtml(c.fileName)}</th>`;
+  thead += '</tr></thead>';
+
+  let rowType = '<tr><td class="name-cell">평가 종류</td>';
+  for (const c of cols) rowType += `<td><span class="eval-badge ${c.evalType}">${c.evalType === 'exam' ? '정기시험' : '수행평가'}</span></td>`;
+  rowType += '</tr>';
+
+  let rowLabel = '<tr><td class="name-cell">시기/영역</td>';
+  cols.forEach(c => { rowLabel += `<td class="auto-cell"><textarea rows="2" data-id="${escapeAttr(c.id)}" data-field="label">${escapeHtml(c.label)}</textarea></td>`; });
+  rowLabel += '</tr>';
+
+  let rowMax = '<tr><td class="name-cell">영역만점</td>';
+  cols.forEach(c => { rowMax += `<td class="auto-cell"><input type="number" step="0.01" data-id="${escapeAttr(c.id)}" data-field="maxScore" value="${c.maxScore != null ? c.maxScore : ''}"></td>`; });
+  rowMax += '</tr>';
+
+  let rowRatio = '<tr><td class="name-cell">반영비율(%)</td>';
+  cols.forEach(c => {
+    rowRatio += c.evalType === 'exam'
+      ? `<td><input type="number" min="0" max="100" step="0.1" placeholder="예: 30" data-id="${escapeAttr(c.id)}" data-field="ratio" value="${c.ratio}"></td>`
+      : `<td class="static-cell">전체 반영</td>`;
+  });
+  rowRatio += '</tr>';
+
+  let rowPriority = '<tr><td class="name-cell">수행평가 우선순위</td>';
+  cols.forEach(c => {
+    rowPriority += c.evalType === 'perf'
+      ? `<td><input type="number" min="1" step="1" data-id="${escapeAttr(c.id)}" data-field="priority" value="${c.priority != null ? c.priority : ''}"></td>`
+      : `<td class="static-cell">-</td>`;
+  });
+  rowPriority += '</tr>';
+
+  configTable.innerHTML = thead + `<tbody>${rowType}${rowLabel}${rowMax}${rowRatio}${rowPriority}</tbody>`;
+
+  configTable.querySelectorAll('input, textarea').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const id = inp.dataset.id;
+      const field = inp.dataset.field;
+      const col = recognizedCols.find(c => c.id === id);
+      if (!col) return;
+      if (field === 'label') col.label = inp.value.trim();
+      else if (field === 'maxScore') col.maxScore = inp.value === '' ? null : parseFloat(inp.value);
+      else if (field === 'ratio') col.ratio = inp.value;
+      else if (field === 'priority') col.priority = inp.value === '' ? null : parseInt(inp.value, 10);
+    });
+  });
+}
+
+/* ============================================================
+   STEP 2 -> STEP 3 : 학기말 성적 처리하기
+   ============================================================ */
+function compareByTotal(a, b, perfOrdered){
+  if (b.total !== a.total) return b.total - a.total;
+  for (const c of perfOrdered) {
+    const av = a.scores[c.id] != null ? a.scores[c.id] : -Infinity;
+    const bv = b.scores[c.id] != null ? b.scores[c.id] : -Infinity;
+    if (bv !== av) return bv - av;
+  }
+  const ha = parseInt(a.hr, 10), hb = parseInt(b.hr, 10);
+  const va = isNaN(ha) ? Infinity : ha, vb = isNaN(hb) ? Infinity : hb;
+  if (va !== vb) return va - vb;
+  const sa = parseInt(a.sn, 10), sb = parseInt(b.sn, 10);
+  const wa = isNaN(sa) ? Infinity : sa, wb = isNaN(sb) ? Infinity : sb;
+  return wa - wb;
+}
+
+function assignGrades(sortedByTotalDesc, enrolled, mode){
+  const cum = mode === '9' ? GRADE_CUM_9 : GRADE_CUM_5;
+  const n = sortedByTotalDesc.length;
+  let prevRank = 0;
+  const cutRanks = [];
+  for (let i = 0; i < cum.length; i++) {
+    const rank = Math.max(prevRank + 1, Math.round((enrolled || n) * cum[i]));
+    const capped = Math.min(rank, n);
+    cutRanks.push(capped);
+    prevRank = capped;
+  }
+  sortedByTotalDesc.forEach((rec, idx) => {
+    const rank = idx + 1;
+    let grade = cutRanks.length;
+    for (let g = 0; g < cutRanks.length; g++) { if (rank <= cutRanks[g]) { grade = g + 1; break; } }
+    rec.grade = grade;
+  });
+}
+
+function recomputeGrades(){
+  const perfOrdered = window.__perfCols || [];
+  const totalSorted = sortRecords(studentRecords, 'total', perfOrdered);
+  assignGrades(totalSorted, window.__enrolled, gradeMode);
+  totalSorted.forEach((rec, idx) => {
+    rec.rank = idx + 1;
+    rec.achieve5 = computeAchieveGrade(rec.total, ACHIEVE_5);
+    rec.achieve3 = computeAchieveGrade(rec.total, ACHIEVE_3);
+  });
+}
+
+function renderAchieveChart(containerId, table, colors){
+  const total = studentRecords.length;
+  const counts = table.map(() => 0);
+  studentRecords.forEach(rec => {
+    const grade = computeAchieveGrade(rec.total, table);
+    const idx = table.findIndex(g => g.grade === grade);
+    if (idx >= 0) counts[idx]++;
+  });
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = table.map((g, i) => {
+    const cnt = counts[i];
+    const pct = total ? (cnt / total * 100) : 0;
+    return `<div class="achieve-row">
+      <div class="ag-label" style="background:${colors[i]}">${g.grade}</div>
+      <div class="ag-bar-track"><div class="ag-bar-fill" style="width:${pct.toFixed(1)}%;background:${colors[i]}"></div></div>
+      <div class="ag-meta">${cnt}명 (${pct.toFixed(1)}%)</div>
+    </div>`;
+  }).join('');
+}
+
+function renderAchieveSection(){
+  const table = achieveMode === '3' ? ACHIEVE_3 : ACHIEVE_5;
+  const colors = achieveMode === '3' ? ACHIEVE_COLORS_3 : ACHIEVE_COLORS_5;
+  renderAchieveChart('achieveChart', table, colors);
+  document.getElementById('achieveDistSub').textContent = achieveMode === '3'
+    ? '학기말 총점 기준 절대 성취 등급입니다. (3단계: A 80↑ · B 60↑ · C 60미만)'
+    : '학기말 총점 기준 절대 성취 등급입니다. (5단계: A 90↑ · B 80↑ · C 70↑ · D 60↑ · E 60미만)';
+}
+
+function sortRecords(list, mode, perfOrdered){
+  const arr = list.slice();
+  if (mode === 'id') {
+    arr.sort((a,b) => {
+      const ha = parseInt(a.hr,10), hb = parseInt(b.hr,10);
+      const va = isNaN(ha) ? Infinity : ha, vb = isNaN(hb) ? Infinity : hb;
+      if (va !== vb) return va - vb;
+      const sa = parseInt(a.sn,10), sb = parseInt(b.sn,10);
+      const wa = isNaN(sa) ? Infinity : sa, wb = isNaN(sb) ? Infinity : sb;
+      return wa - wb;
+    });
+  } else {
+    arr.sort((a,b) => compareByTotal(a, b, perfOrdered));
+  }
+  return arr;
+}
+
+processBtn.addEventListener('click', () => {
+  configErr.style.display = 'none';
+
+  const examCols = recognizedCols.filter(c => c.evalType === 'exam');
+  const perfCols = recognizedCols.filter(c => c.evalType === 'perf');
+
+  for (const c of examCols) {
+    const r = parseFloat(c.ratio);
+    if (c.ratio === '' || isNaN(r) || r < 0 || r > 100) {
+      configErr.textContent = `'${c.label}'의 반영비율을 0~100 사이 숫자로 입력해 주세요.`;
+      configErr.style.display = 'block';
+      return;
+    }
+  }
+  let enrolled = parseInt(enrolledInput.value, 10);
+  if (isNaN(enrolled) || enrolled <= 0) {
+    enrolled = estimateEnrolled();
+    if (enrolled <= 0) {
+      configErr.textContent = '학생 데이터를 확인할 수 없어 수강생 수를 계산할 수 없습니다. 직접 입력해 주세요.';
+      configErr.style.display = 'block';
+      return;
+    }
+  }
+
+  const examOrdered = examCols.slice().sort((a,b) => {
+    const na = parseInt(a.label, 10), nb = parseInt(b.label, 10);
+    const va = isNaN(na) ? Infinity : na, vb = isNaN(nb) ? Infinity : nb;
+    return va - vb;
+  });
+  const perfOrdered = perfCols.slice().sort((a,b) => (a.priority == null ? Infinity : a.priority) - (b.priority == null ? Infinity : b.priority));
+  const allOrdered = [...examOrdered, ...perfOrdered];
+
+  const studentMap = new Map();
+  for (const col of allOrdered) {
+    for (const s of col.grid.students) {
+      const key = s.hr + '-' + s.sn;
+      if (!studentMap.has(key)) {
+        const matchedName = nameByKey.get(key);
+        studentMap.set(key, { hr: s.hr, sn: s.sn, name: matchedName || '-', scores: {} });
+      }
+      studentMap.get(key).scores[col.id] = s.score;
+    }
+  }
+
+  const list = [];
+  for (const rec of studentMap.values()) {
+    let total = 0;
+    for (const c of examOrdered) {
+      const sc = rec.scores[c.id];
+      if (sc == null) continue;
+      total += sc * (parseFloat(c.ratio) / 100);
+    }
+    for (const c of perfOrdered) {
+      const sc = rec.scores[c.id];
+      if (sc == null) continue;
+      total += sc;
+    }
+    rec.total = total;
+    list.push(rec);
+  }
+
+  studentRecords = list;
+  window.__examCols = examOrdered;
+  window.__perfCols = perfOrdered;
+  window.__allCols = allOrdered;
+  window.__enrolled = enrolled;
+
+  gradeMode = '5';
+  document.getElementById('grade5Btn').classList.add('active');
+  document.getElementById('grade9Btn').classList.remove('active');
+  achieveMode = '5';
+  document.getElementById('achieve5Btn').classList.add('active');
+  document.getElementById('achieve3Btn').classList.remove('active');
+  recomputeGrades();
+  renderAchieveSection();
+
+  document.getElementById('resEnrolled').textContent = enrolled;
+  document.getElementById('resMatched').textContent = studentRecords.length;
+  const avg = studentRecords.length ? (studentRecords.reduce((a,r) => a + r.total, 0) / studentRecords.length) : 0;
+  document.getElementById('resAvg').textContent = avg.toFixed(1);
+
+  currentSort = 'total';
+  document.getElementById('sortTotalBtn').classList.add('active');
+  document.getElementById('sortIdBtn').classList.remove('active');
+  renderResultTable('total');
+
+  resultSection.classList.add('show');
+  resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+/* ============================================================
+   결과 표 렌더링
+   ============================================================ */
+function renderResultTable(sortMode){
+  const cols = window.__allCols || [];
+  const perfOrdered = window.__perfCols || [];
+  const list = sortRecords(studentRecords, sortMode, perfOrdered);
+
+  let thead = '<thead><tr><th>순위</th><th>반</th><th>번호</th><th class="name-cell">이름</th>';
+  for (const c of cols) thead += `<th>${escapeHtml(c.label)}</th>`;
+  thead += '<th>총점</th><th>상대 등급</th><th>성취 등급</th></tr></thead>';
+
+  let rows = '';
+  list.forEach((rec, i) => {
+    const next = list[i + 1];
+    const isBoundary = sortMode === 'total' && next && next.grade !== rec.grade;
+    let row = `<tr class="${isBoundary ? 'grade-boundary' : ''}">
+      <td class="num">${rec.rank}</td>
+      <td>${escapeHtml(rec.hr)}</td>
+      <td class="num">${escapeHtml(rec.sn)}</td>
+      <td class="name-cell"><input class="name-input" type="text" data-key="${escapeAttr(rec.hr + '-' + rec.sn)}" value="${escapeAttr(rec.name || '')}" placeholder="이름 입력"></td>`;
+    for (const c of cols) {
+      const sc = rec.scores[c.id];
+      row += sc != null ? `<td class="num">${sc.toFixed(2)}</td>` : `<td class="num absent-cell">결시</td>`;
+    }
+    row += `<td class="num emph">${rec.total.toFixed(2)}</td>`;
+    const gradeColors = gradeMode === '9' ? GRADE_COLORS_9 : GRADE_COLORS_5;
+    row += `<td><span class="grade-pill" style="background:${gradeColors[rec.grade - 1]}">${rec.grade}</span></td>`;
+    const achieveVal = achieveMode === '3' ? rec.achieve3 : rec.achieve5;
+    const achieveTableArr = achieveMode === '3' ? ACHIEVE_3 : ACHIEVE_5;
+    const achieveColorsArr = achieveMode === '3' ? ACHIEVE_COLORS_3 : ACHIEVE_COLORS_5;
+    const aidx = achieveTableArr.findIndex(g => g.grade === achieveVal);
+    row += `<td><span class="grade-pill" style="background:${achieveColorsArr[aidx]}">${achieveVal}</span></td>`;
+    row += '</tr>';
+    rows += row;
+  });
+
+  resultTable.innerHTML = thead + `<tbody>${rows}</tbody>`;
+
+  resultTable.querySelectorAll('input.name-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const key = inp.dataset.key;
+      const rec = studentRecords.find(r => (r.hr + '-' + r.sn) === key);
+      if (rec) rec.name = inp.value;
+    });
+  });
+}
+
+document.getElementById('sortTotalBtn').addEventListener('click', () => {
+  currentSort = 'total';
+  document.getElementById('sortTotalBtn').classList.add('active');
+  document.getElementById('sortIdBtn').classList.remove('active');
+  renderResultTable('total');
+});
+document.getElementById('sortIdBtn').addEventListener('click', () => {
+  currentSort = 'id';
+  document.getElementById('sortIdBtn').classList.add('active');
+  document.getElementById('sortTotalBtn').classList.remove('active');
+  renderResultTable('id');
+});
+
+document.getElementById('grade5Btn').addEventListener('click', () => {
+  if (gradeMode === '5' || !studentRecords.length) return;
+  gradeMode = '5';
+  document.getElementById('grade5Btn').classList.add('active');
+  document.getElementById('grade9Btn').classList.remove('active');
+  recomputeGrades();
+  renderResultTable(currentSort);
+});
+document.getElementById('grade9Btn').addEventListener('click', () => {
+  if (gradeMode === '9' || !studentRecords.length) return;
+  gradeMode = '9';
+  document.getElementById('grade9Btn').classList.add('active');
+  document.getElementById('grade5Btn').classList.remove('active');
+  recomputeGrades();
+  renderResultTable(currentSort);
+});
+
+document.getElementById('achieve5Btn').addEventListener('click', () => {
+  if (achieveMode === '5' || !studentRecords.length) return;
+  achieveMode = '5';
+  document.getElementById('achieve5Btn').classList.add('active');
+  document.getElementById('achieve3Btn').classList.remove('active');
+  renderAchieveSection();
+  renderResultTable(currentSort);
+});
+document.getElementById('achieve3Btn').addEventListener('click', () => {
+  if (achieveMode === '3' || !studentRecords.length) return;
+  achieveMode = '3';
+  document.getElementById('achieve3Btn').classList.add('active');
+  document.getElementById('achieve5Btn').classList.remove('active');
+  renderAchieveSection();
+  renderResultTable(currentSort);
+});
+
+/* ============================================================
+   EXPORT / PRINT
+   ============================================================ */
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+document.getElementById('csvBtn').addEventListener('click', () => {
+  if (!studentRecords.length) return;
+  const cols = window.__allCols || [];
+  const perfOrdered = window.__perfCols || [];
+  const list = sortRecords(studentRecords, currentSort, perfOrdered);
+
+  const header = ['순위','반','번호','이름', ...cols.map(c => c.label), '총점','상대 등급', achieveMode === '3' ? '성취 등급(3단계)' : '성취 등급(5단계)'];
+  const rows = [header];
+  list.forEach(rec => {
+    const row = [rec.rank, rec.hr, rec.sn, rec.name || ''];
+    for (const c of cols) row.push(rec.scores[c.id] != null ? rec.scores[c.id].toFixed(2) : '결시');
+    row.push(rec.total.toFixed(2));
+    row.push(String(rec.grade));
+    row.push(achieveMode === '3' ? rec.achieve3 : rec.achieve5);
+    rows.push(row);
+  });
+  const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = '학기말_성적_결과.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
