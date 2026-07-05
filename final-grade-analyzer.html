@@ -181,6 +181,12 @@
   .spinner{width:15px;height:15px;border-radius:50%;border:2.5px solid #C7CEDA;border-top-color:var(--teal);animation:spin .7s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .warn-box{margin-top:12px;padding:11px 14px;background:var(--amber-soft);border:1px solid #EBCF9C;border-radius:9px;font-size:12.5px;color:#7A5211;white-space:pre-line;}
+  .absent-item{display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-size:12.5px;color:#7A5211;cursor:pointer;}
+  .absent-item input{margin-top:2px;flex:0 0 auto;accent-color:var(--amber);}
+  .excluded-list-box{margin:16px 0;padding:13px 16px;background:var(--rose-soft);border:1px solid #E6B7C0;border-radius:10px;font-size:12.5px;color:#7A2334;}
+  .excluded-list-box b{color:#7A2334;}
+  .excluded-list-box ul{margin:8px 0 0;padding-left:18px;}
+  .excluded-list-box li{margin-bottom:3px;}
   .err-box{margin-top:12px;padding:11px 14px;background:var(--rose-soft);border:1px solid #E6B7C0;border-radius:9px;font-size:12.5px;color:#7A2334;white-space:pre-line;}
   .note-box{margin-top:14px;font-size:12px;color:var(--ink-soft);background:#FAFBFC;border:1px dashed #C7CEDA;border-radius:9px;padding:10px 12px;line-height:1.6;}
 
@@ -370,6 +376,12 @@
       <div class="table-scroll"><table id="configTable"></table></div>
       <div class="note-box">총점 = Σ(정기시험 원점수 × 반영비율) + Σ(수행평가 원점수). 우선순위 1번 수행평가가 표의 가장 왼쪽에 오고, 총점이 같은 학생은 우선순위 1번 점수가 높은 쪽이 위로 정렬됩니다.</div>
 
+      <div class="warn-box no-print" id="examAbsentBox" style="display:none;">
+        <b>정기시험 결시로 자동 제외 후보인 학생</b>
+        <div class="hint" style="margin:4px 0 10px;">정기시험 중 하나라도 응시 기록이 없는 학생은 학적 변동 등의 사유로 보고 기본적으로 성적 처리에서 제외됩니다. 실제로는 단순 결시라 포함시키고 싶다면 체크하세요.</div>
+        <div id="examAbsentList"></div>
+      </div>
+
       <div class="field-row">
         <div class="field">
           <label for="enrolledInput">성적 처리할 학생 수</label>
@@ -378,6 +390,15 @@
         </div>
         <button class="btn" id="processBtn" type="button">학기말 성적 처리하기</button>
       </div>
+
+      <div class="field-row no-print" id="manualExcludeRow" style="display:none;">
+        <div class="field" style="flex:2;min-width:260px;">
+          <label for="manualExcludeInput">추가로 제외할 학생 (반-번호)</label>
+          <input type="text" id="manualExcludeInput" placeholder="예: 3-15, 7-2">
+          <div class="hint" id="manualExcludeHint"></div>
+        </div>
+      </div>
+
       <div class="err-box no-print" id="configErr" style="display:none;"></div>
     </div>
   </div>
@@ -397,6 +418,8 @@
         <div class="stat-card"><div class="lbl">성적 확인된 학생</div><div class="val num" id="resMatched">-</div></div>
         <div class="stat-card"><div class="lbl">전체 평균</div><div class="val num" id="resAvg">-</div></div>
       </div>
+
+      <div id="excludedListArea"></div>
 
       <div class="control-groups no-print">
         <div class="control-row">
@@ -478,6 +501,8 @@ let fileIdSeq = 0;
 let colIdSeq = 0;
 let recognizedCols = []; // [{id, fileName, evalType, label, maxScore, ratio, priority, grid:{students}}]
 let nameByKey = new Map(); // "반-번호" -> 성명 (교과시간별출석부에서 인식)
+let examAbsentees = []; // [{key, hr, sn, missingLabels}] - 정기시험 중 결시가 있는 학생(자동 제외 후보)
+let restoredKeys = new Set(); // examAbsentees 중 사용자가 "포함(복원)"으로 체크한 학생의 key
 let studentRecords = []; // after processing: [{hr, sn, name, scores:{colId:score}, total, grade}]
 let currentSort = 'total';
 let gradeMode = '5';
@@ -498,6 +523,7 @@ const configSection = document.getElementById('configSection');
 const configTable = document.getElementById('configTable');
 const configErr = document.getElementById('configErr');
 const enrolledInput = document.getElementById('enrolledInput');
+enrolledInput.addEventListener('input', () => { enrolledInput.dataset.userEdited = '1'; });
 const processBtn = document.getElementById('processBtn');
 
 const resultSection = document.getElementById('resultSection');
@@ -548,6 +574,8 @@ resetBtn.addEventListener('click', () => {
   uploadedFiles = [];
   recognizedCols = [];
   nameByKey = new Map();
+  examAbsentees = [];
+  restoredKeys = new Set();
   studentRecords = [];
   renderFileList();
   fileErrEl.style.display = 'none';
@@ -557,6 +585,11 @@ resetBtn.addEventListener('click', () => {
   resultSection.classList.remove('show');
   enrolledInput.value = '';
   enrolledInput.placeholder = '예: 152';
+  delete enrolledInput.dataset.userEdited;
+  document.getElementById('examAbsentBox').style.display = 'none';
+  document.getElementById('manualExcludeRow').style.display = 'none';
+  document.getElementById('manualExcludeInput').value = '';
+  document.getElementById('excludedListArea').innerHTML = '';
 });
 
 document.getElementById('guideToggle').addEventListener('click', () => {
@@ -802,9 +835,12 @@ async function runRecognize(){
 
     recognizedCols = cols;
 
-    // 수강생 수(재적 인원) 예시값: 인식된 자료에 등장하는 학생(반-번호) 수 기준
-    const estimated = estimateEnrolled();
-    enrolledInput.placeholder = estimated > 0 ? `예: ${estimated} (인식된 학생 수 기준, 비워두면 자동 사용)` : '예: 152';
+    // 정기시험 결시(자동 제외 후보) 감지 + 성적 처리할 학생 수 자동 반영
+    examAbsentees = computeExamAbsentees();
+    restoredKeys = new Set();
+    delete enrolledInput.dataset.userEdited;
+    renderExamAbsentBox();
+    refreshEnrolledSuggestion();
 
     if (failures.length) {
       warnBox.style.display = 'block';
@@ -832,12 +868,81 @@ async function runRecognize(){
 /* ============================================================
    반영비율 표
    ============================================================ */
-function estimateEnrolled(){
+function getAllMatchedKeys(){
   const keys = new Set();
   for (const c of recognizedCols) {
     for (const s of c.grid.students) keys.add(s.hr + '-' + s.sn);
   }
-  return keys.size;
+  return keys;
+}
+
+function estimateEnrolled(){
+  return getAllMatchedKeys().size;
+}
+
+// 정기시험 중 하나라도 응시 기록이 없는 학생을 찾아 자동 제외 후보로 반환
+function computeExamAbsentees(){
+  const examCols = recognizedCols.filter(c => c.evalType === 'exam');
+  if (!examCols.length) return [];
+  const seen = new Map(); // key -> Set<colId> 응시한 정기시험
+  for (const c of examCols) {
+    for (const s of c.grid.students) {
+      const key = s.hr + '-' + s.sn;
+      if (!seen.has(key)) seen.set(key, new Set());
+      seen.get(key).add(c.id);
+    }
+  }
+  const absentees = [];
+  for (const [key, presentSet] of seen) {
+    const missing = examCols.filter(c => !presentSet.has(c.id));
+    if (missing.length > 0) {
+      const [hr, sn] = key.split('-');
+      absentees.push({ key, hr, sn, missingLabels: missing.map(c => c.label) });
+    }
+  }
+  absentees.sort((a, b) => {
+    const ha = parseInt(a.hr, 10), hb = parseInt(b.hr, 10);
+    if (ha !== hb) return ha - hb;
+    return parseInt(a.sn, 10) - parseInt(b.sn, 10);
+  });
+  return absentees;
+}
+
+function currentAutoExcludedCount(){
+  return examAbsentees.filter(a => !restoredKeys.has(a.key)).length;
+}
+
+function refreshEnrolledSuggestion(){
+  const matched = estimateEnrolled();
+  const autoExcluded = currentAutoExcludedCount();
+  const suggested = matched - autoExcluded;
+  enrolledInput.placeholder = suggested > 0
+    ? `예: ${suggested} (자동 제외 ${autoExcluded}명 반영, 비워두면 자동 사용)`
+    : '예: 152';
+  if (!enrolledInput.dataset.userEdited) {
+    enrolledInput.value = suggested > 0 ? suggested : '';
+  }
+}
+
+function renderExamAbsentBox(){
+  const box = document.getElementById('examAbsentBox');
+  const listEl = document.getElementById('examAbsentList');
+  if (!examAbsentees.length) { box.style.display = 'none'; listEl.innerHTML = ''; return; }
+  box.style.display = 'block';
+  listEl.innerHTML = examAbsentees.map(a => {
+    const isRestored = restoredKeys.has(a.key);
+    return '<label class="absent-item">' +
+      '<input type="checkbox" data-key="' + escapeAttr(a.key) + '" ' + (isRestored ? 'checked' : '') + '>' +
+      '<span><b>' + escapeHtml(a.hr) + '반 ' + escapeHtml(a.sn) + '번</b> — ' + escapeHtml(a.missingLabels.join(', ')) + ' 결시 (기본: 제외 · 체크하면 포함)</span>' +
+      '</label>';
+  }).join('');
+  listEl.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) restoredKeys.add(cb.dataset.key);
+      else restoredKeys.delete(cb.dataset.key);
+      refreshEnrolledSuggestion();
+    });
+  });
 }
 
 // 정기시험(차수 오름차순)이 항상 앞에, 수행평가(인식 순서)가 뒤에 오도록 고정 표시 순서
@@ -999,6 +1104,9 @@ function sortRecords(list, mode, perfOrdered){
 
 processBtn.addEventListener('click', () => {
   configErr.style.display = 'none';
+  const manualExcludeRow = document.getElementById('manualExcludeRow');
+  const manualExcludeInput = document.getElementById('manualExcludeInput');
+  const manualExcludeHint = document.getElementById('manualExcludeHint');
 
   const examCols = recognizedCols.filter(c => c.evalType === 'exam');
   const perfCols = recognizedCols.filter(c => c.evalType === 'perf');
@@ -1011,15 +1119,47 @@ processBtn.addEventListener('click', () => {
       return;
     }
   }
-  let enrolled = parseInt(enrolledInput.value, 10);
-  if (isNaN(enrolled) || enrolled <= 0) {
-    enrolled = estimateEnrolled();
-    if (enrolled <= 0) {
-      configErr.textContent = '학생 데이터를 확인할 수 없어 수강생 수를 계산할 수 없습니다. 직접 입력해 주세요.';
-      configErr.style.display = 'block';
+
+  // 1) 정기시험 결시 자동 제외 (체크박스로 복원되지 않은 학생만)
+  const autoExcludedSet = new Set(examAbsentees.filter(a => !restoredKeys.has(a.key)).map(a => a.key));
+  const matched = estimateEnrolled();
+  const availableAfterAuto = matched - autoExcludedSet.size;
+
+  let enrolledTarget = parseInt(enrolledInput.value, 10);
+  if (isNaN(enrolledTarget) || enrolledTarget <= 0) enrolledTarget = availableAfterAuto;
+
+  if (availableAfterAuto <= 0) {
+    configErr.textContent = '학생 데이터를 확인할 수 없어 성적 처리할 학생 수를 계산할 수 없습니다. 파일을 확인해 주세요.';
+    configErr.style.display = 'block';
+    return;
+  }
+  if (enrolledTarget > availableAfterAuto) {
+    configErr.textContent = `입력하신 학생 수(${enrolledTarget}명)가 처리 가능한 학생 수(${availableAfterAuto}명)보다 많습니다. 값을 확인해 주세요.`;
+    configErr.style.display = 'block';
+    return;
+  }
+
+  // 2) 목표 인원에 맞추기 위해 추가로 제외해야 하는 인원 계산
+  const additionalNeeded = availableAfterAuto - enrolledTarget;
+  let manualExcludeKeys = [];
+  if (additionalNeeded > 0) {
+    const matchedKeysSet = getAllMatchedKeys();
+    const parsed = parseManualExcludeInput(manualExcludeInput.value, matchedKeysSet, autoExcludedSet);
+    if (parsed.errors.length > 0 || parsed.keys.length !== additionalNeeded) {
+      manualExcludeRow.style.display = 'block';
+      let hintMsg = `성적 처리할 학생 수를 ${enrolledTarget}명으로 맞추려면 ${additionalNeeded}명을 추가로 제외해야 합니다. (현재 ${parsed.keys.length}명 입력됨)`;
+      if (parsed.errors.length > 0) hintMsg += ' — 확인 필요: ' + parsed.errors.join(', ');
+      manualExcludeHint.textContent = hintMsg;
+      manualExcludeRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    manualExcludeKeys = parsed.keys;
+  } else {
+    manualExcludeRow.style.display = 'none';
   }
+
+  const finalExcludeSet = new Set([...autoExcludedSet, ...manualExcludeKeys]);
+  const enrolled = enrolledTarget;
 
   const examOrdered = examCols.slice().sort((a,b) => {
     const na = parseInt(a.label, 10), nb = parseInt(b.label, 10);
@@ -1033,6 +1173,7 @@ processBtn.addEventListener('click', () => {
   for (const col of allOrdered) {
     for (const s of col.grid.students) {
       const key = s.hr + '-' + s.sn;
+      if (finalExcludeSet.has(key)) continue;
       if (!studentMap.has(key)) {
         const matchedName = nameByKey.get(key);
         studentMap.set(key, { hr: s.hr, sn: s.sn, name: matchedName || '-', scores: {} });
@@ -1078,6 +1219,8 @@ processBtn.addEventListener('click', () => {
   const avg = studentRecords.length ? (studentRecords.reduce((a,r) => a + r.total, 0) / studentRecords.length) : 0;
   document.getElementById('resAvg').textContent = avg.toFixed(1);
 
+  renderExcludedList(autoExcludedSet, manualExcludeKeys);
+
   currentSort = 'total';
   document.getElementById('sortTotalBtn').classList.add('active');
   document.getElementById('sortIdBtn').classList.remove('active');
@@ -1086,6 +1229,38 @@ processBtn.addEventListener('click', () => {
   resultSection.classList.add('show');
   resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
+
+function parseManualExcludeInput(text, matchedKeysSet, alreadyExcludedSet){
+  const raw = text.split(/[,\n、，]/).map(s => s.trim()).filter(Boolean);
+  const keys = [];
+  const errors = [];
+  for (const token of raw) {
+    const m = token.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (!m) { errors.push(token + '(형식 확인, 예: 3-15)'); continue; }
+    const key = m[1] + '-' + m[2];
+    if (!matchedKeysSet.has(key)) { errors.push(token + '(학생을 찾을 수 없음)'); continue; }
+    if (alreadyExcludedSet.has(key)) { errors.push(token + '(이미 제외 대상)'); continue; }
+    if (keys.includes(key)) { errors.push(token + '(중복 입력)'); continue; }
+    keys.push(key);
+  }
+  return { keys, errors };
+}
+
+function renderExcludedList(autoExcludedSet, manualExcludeKeys){
+  const area = document.getElementById('excludedListArea');
+  const autoList = examAbsentees.filter(a => autoExcludedSet.has(a.key));
+  if (autoList.length === 0 && manualExcludeKeys.length === 0) { area.innerHTML = ''; return; }
+  let html = '<div class="excluded-list-box"><b>성적 처리에서 제외된 학생</b><ul>';
+  autoList.forEach(a => {
+    html += `<li>${escapeHtml(a.hr)}반 ${escapeHtml(a.sn)}번 — ${escapeHtml(a.missingLabels.join(', '))} 결시 (자동 제외)</li>`;
+  });
+  manualExcludeKeys.forEach(key => {
+    const [hr, sn] = key.split('-');
+    html += `<li>${escapeHtml(hr)}반 ${escapeHtml(sn)}번 — 직접 지정 제외</li>`;
+  });
+  html += '</ul></div>';
+  area.innerHTML = html;
+}
 
 /* ============================================================
    결과 표 렌더링
