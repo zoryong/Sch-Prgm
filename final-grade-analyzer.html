@@ -306,7 +306,7 @@
         <div class="guide-step">
           <div class="gs-num">STEP 01</div>
           <div class="gs-title">파일 업로드 및 인식</div>
-          <div class="gs-body">정기시험·수행평가 '교과목별 일람표' PDF를 모두 올리고 <b>[인식하기]</b>를 누르세요. 평가 종류·시기/영역·영역만점이 자동으로 채워집니다. '교과시간출석부' PDF를 함께 올리면 학생 이름도 자동으로 매칭됩니다.</div>
+          <div class="gs-body">정기시험·수행평가 '교과목별 일람표' PDF를 모두 올리고 <b>[인식하기]</b>를 누르세요. 평가 종류·시기/영역·영역만점이 자동으로 채워집니다. '교과시간별출석부' PDF를 함께 올리면 학생 이름도 자동으로 매칭됩니다.</div>
         </div>
         <div class="guide-step">
           <div class="gs-num">STEP 02</div>
@@ -331,14 +331,14 @@
     <div class="rail-col"><div class="num-badge">01</div><div class="rail-line"></div></div>
     <div class="rail-body">
       <h2>파일 업로드 및 인식</h2>
-      <p class="rail-desc">'정기시험 교과목별 일람표'와 '수행평가 교과목별 일람표' PDF를 모두 올린 뒤 [인식하기]를 눌러주세요. '교과시간 출석부' PDF를 함께 올리면 학생 이름도 자동으로 매칭됩니다.</p>
+      <p class="rail-desc">'정기시험 교과목별 일람표'와 '수행평가 교과목별 일람표' PDF를 모두 올린 뒤 [인식하기]를 눌러주세요. '교과시간별출석부' PDF를 함께 올리면 학생 이름도 자동으로 매칭됩니다.</p>
     </div>
   </div>
   <div class="panel">
     <div class="dropzone" id="dropzone">
       <div class="icon">📄</div>
       <div class="main-txt">클릭하거나 파일을 끌어다 놓으세요.</div>
-      <div class="sub-txt">PDF 파일 · 정기시험/수행평가 교과목별 일람표 + 교과시간 출석부</div>
+      <div class="sub-txt">PDF 파일 · 정기시험/수행평가 교과목별 일람표 + 교과시간별출석부</div>
       <input type="file" id="fileInput" accept="application/pdf" multiple>
     </div>
 
@@ -477,7 +477,7 @@ let uploadedFiles = []; // {id, file}
 let fileIdSeq = 0;
 let colIdSeq = 0;
 let recognizedCols = []; // [{id, fileName, evalType, label, maxScore, ratio, priority, grid:{students}}]
-let nameByKey = new Map(); // "반-번호" -> 성명 (교과시간출석부에서 인식)
+let nameByKey = new Map(); // "반-번호" -> 성명 (교과시간별출석부에서 인식)
 let studentRecords = []; // after processing: [{hr, sn, name, scores:{colId:score}, total, grade}]
 let currentSort = 'total';
 let gradeMode = '5';
@@ -656,7 +656,7 @@ function parseScoreGrid(tokenLines){
 function parseAttendanceRoster(tokenLines){
   const joined = tokenLines.map(tl => joinTokens(tl.items));
   const flatText = joined.join('').replace(/\s+/g, '');
-  if (!flatText.includes('교과시간별출석부') && !flatText.includes('교과시간출석부')) return null;
+  if (!flatText.includes('교과시간별출석부') && !flatText.includes('교과시간별출석부')) return null;
 
   let headerIdx = -1;
   for (let i = 0; i < joined.length; i++) {
@@ -772,10 +772,10 @@ async function runRecognize(){
             found = true;
             roster.students.forEach(s => nameByKey.set(s.hr + '-' + s.sn, s.name));
             newNameCount += roster.students.length;
-            detectionLog.push(`${item.file.name} p${p}: 교과시간출석부 · ${roster.students.length}명 이름 인식`);
+            detectionLog.push(`${item.file.name} p${p}: 교과시간별출석부 · ${roster.students.length}명 이름 인식`);
           }
         }
-        if (!found) failures.push(`${item.file.name}: 정기시험/수행평가 일람표 또는 교과시간출석부 형식을 인식하지 못했습니다.`);
+        if (!found) failures.push(`${item.file.name}: 정기시험/수행평가 일람표 또는 교과시간별출석부 형식을 인식하지 못했습니다.`);
       } catch (err) {
         failures.push(`${item.file.name}: ${err.message || err}`);
       }
@@ -783,7 +783,7 @@ async function runRecognize(){
 
     if (cols.length === 0) {
       throw new Error(newNameCount > 0
-        ? '교과시간출석부에서 이름은 인식했지만, 정기시험/수행평가 성적 데이터가 없습니다. 성적 파일도 함께 업로드해 주세요.'
+        ? '교과시간별출석부에서 이름은 인식했지만, 정기시험/수행평가 성적 데이터가 없습니다. 성적 파일도 함께 업로드해 주세요.'
         : '업로드한 PDF에서 성적 데이터를 인식하지 못했습니다. 파일 형식을 확인해 주세요.');
     }
 
@@ -812,7 +812,7 @@ async function runRecognize(){
     }
     if (detectionLog.length) {
       infoBox.style.display = 'block';
-      const summary = newNameCount > 0 ? [`교과시간출석부에서 총 ${newNameCount}명의 이름을 인식했습니다.`] : [];
+      const summary = newNameCount > 0 ? [`교과시간별출석부에서 총 ${newNameCount}명의 이름을 인식했습니다.`] : [];
       infoBox.textContent = '인식 결과\n' + [...summary, ...detectionLog].join('\n');
     }
 
