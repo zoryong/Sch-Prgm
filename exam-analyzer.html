@@ -448,7 +448,7 @@
           <div class="gs-body">
             NEIS에서 받은 성적자료(PDF)를 업로드하세요. 정기시험 교과목별 일람표(반별 성적 요약)든, 학생답 정오표(문항별 채점 결과)든 형식을 자동으로 인식합니다.<br><br>
             <div class="gs-sub">🗓️ <b>여러 회차 함께 보기:</b> 1차·2차 등 서로 다른 시험 결과의 PDF를 한꺼번에 올리면, 회차별로 자동 구분해서 비교표를 만들어 줍니다.</div>
-            <div class="gs-sub">🙋 <b>이름 자동 매칭:</b> '교과시간출석부' PDF를 함께 올리면 반-번호로 이름을 자동으로 매칭합니다.</div>
+            <div class="gs-sub">🙋 <b>이름 자동 매칭:</b> '교과시간별출석부' PDF를 함께 올리면 반-번호로 이름을 자동으로 매칭합니다.</div>
           </div>
         </div>
 
@@ -492,14 +492,14 @@
     <div class="rail-col"><div class="num-badge">01</div><div class="rail-line"></div></div>
     <div class="rail-body">
       <h2>PDF 파일 업로드</h2>
-      <p class="rail-desc">정기시험 '교과목별 일람표' 나 '학생답 정오표' PDF를 모두 올린 뒤 [성적 분석하기]를 눌러주세요. '교과시간 출석부' PDF를 함께 올리면 학생 이름도 자동으로 매칭됩니다.</p>
+      <p class="rail-desc">정기시험 '교과목별 일람표' 나 '학생답 정오표' PDF를 모두 올린 뒤 [성적 분석하기]를 눌러주세요. '교과시간별출석부' PDF를 함께 올리면 학생 이름도 자동으로 매칭됩니다.</p>
     </div>
   </div>
   <div class="panel">
     <div class="dropzone" id="dropzone">
       <div class="icon">📄</div>
       <div class="main-txt">클릭하거나 파일을 끌어다 놓으세요.</div>
-      <div class="sub-txt">PDF 파일 · 정기시험 일람표 / 학생답 정오표 + 교과시간출석부</div>
+      <div class="sub-txt">PDF 파일 · 정기시험 일람표 / 학생답 정오표 + 교과시간별출석부</div>
       <input type="file" id="fileInput" accept="application/pdf" multiple>
     </div>
 
@@ -660,7 +660,7 @@ let currentRelMode = '5'; // '5' | '9'
 let distRoundsData = []; // [{round, taken, scores}] - populated after analysis, used by the 급간 width control
 let currentBinWidth = 10;
 let fileIdSeq = 0;
-let nameByKey = new Map(); // "반-번호" -> 성명 (교과시간출석부에서 인식, 이름이 없는 자료를 보완)
+let nameByKey = new Map(); // "반-번호" -> 성명 (교과시간별출석부에서 인식, 이름이 없는 자료를 보완)
 
 const fileInput = document.getElementById('fileInput');
 const dropzone = document.getElementById('dropzone');
@@ -902,7 +902,7 @@ function parseGridPage(tokenLines){
 function parseAttendanceRoster(tokenLines){
   const joined = tokenLines.map(tl => joinTokens(tl.items));
   const flatText = joined.join('').replace(/\s+/g, '');
-  if (!flatText.includes('교과시간별출석부') && !flatText.includes('교과시간출석부')) return null;
+  if (!flatText.includes('교과시간별출석부') && !flatText.includes('교과시간별출석부')) return null;
 
   let headerIdx = -1;
   for (let i = 0; i < joined.length; i++) {
@@ -1053,7 +1053,7 @@ async function runAnalysis(){
           if (roster && roster.students.length) {
             roster.students.forEach(s => nameByKey.set(`${s.hr}-${s.sn}`, s.name));
             newNameCount += roster.students.length;
-            detectionLog.push(`${item.file.name} p${p}: 교과시간출석부 · ${roster.students.length}명 이름 인식`);
+            detectionLog.push(`${item.file.name} p${p}: 교과시간별출석부 · ${roster.students.length}명 이름 인식`);
             continue;
           }
         }
@@ -1064,7 +1064,7 @@ async function runAnalysis(){
 
     if (roundsMap.size === 0) {
       throw new Error(newNameCount > 0
-        ? '교과시간출석부에서 이름은 인식했지만, 학생 성적 데이터(정오표/일람표)가 없습니다. 성적 파일도 함께 업로드해 주세요.'
+        ? '교과시간별출석부에서 이름은 인식했지만, 학생 성적 데이터(정오표/일람표)가 없습니다. 성적 파일도 함께 업로드해 주세요.'
         : '업로드한 PDF에서 학생 성적 데이터를 찾지 못했습니다. 파일 형식을 확인해 주세요.');
     }
 
@@ -1111,7 +1111,7 @@ async function runAnalysis(){
     }
     if (detectionLog.length) {
       infoBox.style.display = 'block';
-      const nameSummary = newNameCount > 0 ? [`교과시간출석부에서 총 ${newNameCount}명의 이름을 인식했습니다.`] : [];
+      const nameSummary = newNameCount > 0 ? [`교과시간별출석부에서 총 ${newNameCount}명의 이름을 인식했습니다.`] : [];
       infoBox.textContent = '인식 결과\n' + [...nameSummary, ...detectionLog].join('\n');
     }
 
