@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시험지 봉투 표지 생성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.3/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    /* preserved: used only by the printed cover content below - never repurpose this */
+    --font:'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+
+    /* app-chrome design tokens (matching 학생활동자료 통합/정기시험 성적 분석 프로그램) */
+    --sans:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+    --ink:#1B2430;
+    --ink-soft:#57616F;
+    --line:#E2E6EB;
+    --paper:#F6F7F9;
+    --card:#FFFFFF;
+    --navy:#213863;
+    --navy-deep:#152540;
+    --teal:#0F8A82;
+    --teal-soft:#E3F4F1;
+    --amber:#C8791C;
+    --amber-soft:#FBF0DF;
+    --rose:#B8465A;
+    --rose-soft:#FBEAEC;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);word-break:keep-all;overflow-wrap:break-word;}
+  .app{max-width:980px;margin:0 auto;padding:44px 20px 80px;}
+
+  /* ---------- header (full-bleed navy banner) ---------- */
+  header.page-head{
+    background:linear-gradient(155deg,var(--navy-deep) 0%,var(--navy) 62%,#2B4C7E 100%);
+    color:#fff;
+    padding:38px 28px 46px;
+  }
+  header.page-head .eyebrow{
+    font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:#9FB3D6;font-weight:600;margin-bottom:10px;
+  }
+  header.page-head h1{
+    font-size:clamp(22px,4vw,30px);font-weight:900;margin:0 0 10px;letter-spacing:-.01em;color:#fff;
+  }
+  header.page-head p{color:#C7D4E8;font-size:14.5px;margin:0;}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:18px;box-shadow:0 1px 2px rgba(21,37,64,.04);}
+  .panel h2{
+    font-size:15px;margin:0 0 14px;color:var(--ink);font-weight:800;letter-spacing:-.005em;
+    display:flex;align-items:center;gap:8px;
+  }
+  .panel h2::before{content:'';width:5px;height:15px;border-radius:3px;background:var(--teal);flex:0 0 auto;}
+  .field-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:6px;min-width:84px;}
+  .field label{font-size:12.5px;font-weight:600;color:var(--ink-soft);}
+  input[type=number]{width:90px;padding:9px 10px;border:1px solid #C7CEDA;border-radius:9px;font-size:14.5px;font-family:'JetBrains Mono',monospace;color:var(--ink);}
+  input[type=number]:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+  input[type=file]{font-size:13px;font-family:inherit;}
+  button{font-family:var(--sans);cursor:pointer;border-radius:10px;border:none;padding:12px 20px;font-size:14px;font-weight:700;transition:background .15s, opacity .15s, transform .08s;}
+  button:hover:not(:disabled){opacity:.92;}
+  button:active:not(:disabled){transform:scale(.98);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  .file-label{display:inline-block;font-family:var(--sans);cursor:pointer;border-radius:10px;border:none;
+    padding:12px 20px;font-size:14px;font-weight:700;transition:opacity .15s, transform .08s;line-height:1.2;}
+  .file-label:hover{opacity:.92;}
+  .file-label:active{transform:scale(.98);}
+  .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+    clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+  .btn-primary{background:var(--teal);color:#fff;}
+  .btn-secondary{background:#fff;border:1.5px solid #C7CEDA;color:var(--navy);}
+  .btn-secondary:hover{background:#F1F4F8;}
+  .file-label.btn-primary{background:var(--teal);color:#fff;}
+  .checkbox{flex-direction:row;align-items:center;gap:6px;}
+  .checkbox input{width:16px;height:16px;accent-color:var(--teal);}
+  .layout-info{margin-top:12px;font-size:12.5px;color:var(--ink-soft);}
+  #fileStatus{margin-top:10px;font-size:12.5px;}
+  #genStatus{margin-top:10px;font-size:12.5px;color:var(--ink-soft);}
+  .ok{color:var(--teal);font-weight:700;}
+  .err{color:var(--rose);font-weight:700;}
+  .col-hint{font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;line-height:1.7;}
+  .col-hint code{background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:2px 6px;font-size:12px;font-family:'JetBrains Mono',monospace;}
+  .actions-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .preview{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:24px;overflow:auto;}
+  .empty-hint{padding:60px 20px;text-align:center;color:var(--ink-soft);font-size:13px;border:1.5px dashed #C7CEDA;border-radius:12px;background:var(--card);}
+
+  /* ---- printed page / cover styling ---- */
+  .pdf-page{background:#fff;margin:0 auto 24px;box-shadow:0 1px 4px rgba(0,0,0,.18);position:relative;overflow:hidden;}
+  .cover-grid{display:grid;width:100%;height:100%;}
+  .cover-box{background:#fff;border:2px solid #000;padding:3px;box-sizing:border-box;}
+  .cover-box.cut-guide{outline:1px dashed #999;outline-offset:2px;}
+  .cover-inner{width:100%;height:100%;box-sizing:border-box;border:1px solid #000;background:#fff;
+    display:flex;flex-direction:column;padding:3% 4%;font-family:var(--font);}
+  .cover-title{flex-shrink:0;text-align:center;border-bottom:2px solid #000;padding-bottom:4%;margin-bottom:2%;}
+  .t-line{white-space:nowrap;font-weight:800;color:#000;line-height:1.35;}
+  .t-line .num{color:#000;}
+  .cover-table{width:100%;flex:1;border-collapse:collapse;table-layout:fixed;}
+  .cover-table td{border:1px solid #000;text-align:center;vertical-align:middle;font-weight:800;
+    padding:2px 4px;overflow:hidden;white-space:nowrap;line-height:1.25;}
+  .cover-table .lbl{color:#000;width:26%;}
+  .cover-table .lbl .lbl-sub{font-size:0.55em;font-weight:600;margin-top:1px;}
+  .cover-table .val{color:#000;}
+  .col-lbl{width:26%;}
+  footer.copyright{margin-top:18px;font-size:11.5px;color:#9AA2B1;text-align:center;}
+  footer.copyright .copyright-link{color:#9AA2B1;text-decoration:underline;text-underline-offset:2px;}
+  footer.copyright .copyright-link:hover{color:var(--teal);}
+  .program-download-row{display:flex;justify-content:flex-end;margin-bottom:12px;}
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <div class="eyebrow">슬기로운 학교생활</div>
+  <h1>시험지 봉투 표지 생성기</h1>
+  <p>엑셀 데이터를 업로드하면 시험지 봉투 표지를 A4 용지에 맞춰 자동 배치해서 PDF로 만들어 드립니다.</p>
+</header>
+
+<div class="app">
+
+  <div class="program-download-row">
+    <button class="btn-secondary" id="downloadProgramBtn" type="button">⬇️ 이 프로그램 다운받기</button>
+  </div>
+
+  <section class="panel">
+    <h2>1. 엑셀 데이터 업로드</h2>
+    <p class="col-hint">
+      엑셀 첫 행(헤더)에 다음 8개 열이 정확한 이름으로 있어야 합니다 — 행 하나당 표지 1개:<br>
+      <code>학년도</code> <code>학기</code> <code>차수</code> <code>과목</code> <code>일시</code> <code>시험실(학년)</code> <code>시험실(반)</code> <code>응시인원</code><br>
+      (예: 2026 / 1 / 2 / 2학년 물리학 / 7월 1일 2교시 / 1 / 1 / 16 → 시험실 칸에 "1-1 (16명)"으로 표시됨)<br>
+      시험실(학년)에 "상담실", "여분"처럼 글자를 쓰고 시험실(반)을 비워두면 반 없이 "상담실 (2명)"처럼 표시됩니다.
+    </p>
+    <div class="actions-row">
+      <input type="file" id="fileInput" accept=".xlsx,.xls" class="visually-hidden">
+      <label for="fileInput" class="file-label btn-primary">파일 선택</label>
+      <button type="button" class="btn-secondary" id="templateBtn">엑셀 양식 다운로드</button>
+    </div>
+    <div id="fileStatus"></div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 표지 크기 및 배치 설정 (A4 기준)</h2>
+    <p class="col-hint">표지 1개의 가로/세로 크기(mm)를 입력하면, 그 크기에 맞춰 A4 한 페이지에 들어갈 개수가 자동으로 계산됩니다 (예: 210×297이면 1장에 1개, 50×50이면 여러 개를 모아 찍기).</p>
+    <div class="field-row">
+      <div class="field">
+        <label for="orientation">용지 방향</label>
+        <div class="actions-row" style="gap:10px;">
+          <label style="font-size:13px;display:flex;align-items:center;gap:4px;">
+            <input type="radio" name="orientation" value="landscape" checked> 가로
+          </label>
+          <label style="font-size:13px;display:flex;align-items:center;gap:4px;">
+            <input type="radio" name="orientation" value="portrait"> 세로
+          </label>
+        </div>
+      </div>
+      <div class="field">
+        <label for="widthMM">가로 (mm)</label>
+        <input type="number" id="widthMM" value="140" min="10" max="1000" step="1">
+      </div>
+      <div class="field">
+        <label for="heightMM">세로 (mm)</label>
+        <input type="number" id="heightMM" value="116" min="10" max="1000" step="1">
+      </div>
+      <div class="field">
+        <label for="marginMM">페이지 여백 (mm)</label>
+        <input type="number" id="marginMM" value="6" min="0" max="100" step="1">
+      </div>
+      <div class="field">
+        <label for="gapMM">표지 간격 (mm)</label>
+        <input type="number" id="gapMM" value="5" min="0" max="50" step="1">
+      </div>
+      <div class="field">
+        <label for="fontScale">글자 크기 배율</label>
+        <input type="number" id="fontScale" value="1" min="0.3" max="3" step="0.05">
+      </div>
+      <div class="field checkbox">
+        <input type="checkbox" id="cutGuide" checked>
+        <label for="cutGuide">자르기 안내선 표시</label>
+      </div>
+    </div>
+    <div class="layout-info" id="layoutInfo"></div>
+  </section>
+
+  <section class="panel">
+    <h2>3. PDF 생성</h2>
+    <div class="actions-row">
+      <button type="button" class="btn-primary" id="generatePdfBtn" disabled>PDF로 내보내기</button>
+    </div>
+    <div id="genStatus"></div>
+  </section>
+
+  <section class="preview" id="previewArea"></section>
+
+  <footer class="copyright">Copyright © 2026 <a href="mailto:physicsgon@gmail.com" class="copyright-link">physicsgon@gmail.com</a> . All rights reserved.</footer>
+</div>
+
+<script>
+// 페이지가 로드된 시점(어떤 사용자 조작도 일어나기 전)의 원본 HTML을 미리 캡처해 둔다.
+// 생성 결과가 화면에 그려진 뒤의 상태가 아니라, 항상 '깨끗한' 최초 상태를 다운로드하기 위함.
+var ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+(function () {
+  'use strict';
+
+  // ----- Constants -----
+  var PX_PER_MM = 4; // on-screen display scale (independent of html2canvas capture scale)
+  var REQUIRED_COLS = ['학년도', '학기', '차수', '과목', '일시', '시험실(학년)', '시험실(반)', '응시인원'];
+
+  var SAMPLE_ROWS = [
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '1', '시험실(반)': '1', 응시인원: '16' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '1', '시험실(반)': '2', 응시인원: '16' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '1', '시험실(반)': '3', 응시인원: '16' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '1', '시험실(반)': '4', 응시인원: '16' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '1', '시험실(반)': '8', 응시인원: '13' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '1', '시험실(반)': '10', 응시인원: '14' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '1', '시험실(반)': '11', 응시인원: '7' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '1', '시험실(반)': '12', 응시인원: '13' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '1', '시험실(반)': '13', 응시인원: '16' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '2', '시험실(반)': '1', 응시인원: '15' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '2', '시험실(반)': '2', 응시인원: '14' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '2', '시험실(반)': '3', 응시인원: '14' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '2', '시험실(반)': '4', 응시인원: '13' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '2', '시험실(반)': '11', 응시인원: '5' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '2', '시험실(반)': '13', 응시인원: '24' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '상담실', '시험실(반)': '', 응시인원: '2' },
+    { 학년도: '2026', 학기: '1', 차수: '2', 과목: '2학년 물리학', 일시: '7월 1일 2교시', '시험실(학년)': '여분', '시험실(반)': '', 응시인원: '30' }
+  ];
+
+  function getPageDims(orientation) {
+    return orientation === 'landscape' ? { w: 297, h: 210 } : { w: 210, h: 297 };
+  }
+
+  // ----- State -----
+  var state = {
+    rows: [],
+    fileName: ''
+  };
+
+  // ----- Helpers -----
+  function $(id) { return document.getElementById(id); }
+
+  function esc(v) {
+    var s = (v === undefined || v === null) ? '' : String(v);
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function mmToPx(mm) { return Math.round(mm * PX_PER_MM); }
+
+  function getSettings() {
+    var orientation = document.querySelector('input[name="orientation"]:checked').value;
+    var w = parseFloat($('widthMM').value) || 1;
+    var h = parseFloat($('heightMM').value) || 1;
+    var margin = parseFloat($('marginMM').value) || 0;
+    var gap = parseFloat($('gapMM').value) || 0;
+    var fontScale = parseFloat($('fontScale').value) || 1;
+    var cutGuide = $('cutGuide').checked;
+    w = Math.max(10, Math.min(w, 1000));
+    h = Math.max(10, Math.min(h, 1000));
+    margin = Math.max(0, Math.min(margin, 100));
+    gap = Math.max(0, Math.min(gap, 50));
+    fontScale = Math.max(0.3, Math.min(fontScale, 3));
+    return { orientation: orientation, w: w, h: h, margin: margin, gap: gap, fontScale: fontScale, cutGuide: cutGuide };
+  }
+
+  function computeLayout(settings) {
+    var page = getPageDims(settings.orientation);
+    var usableW = page.w - settings.margin * 2;
+    var usableH = page.h - settings.margin * 2;
+    var cols = Math.floor((usableW + settings.gap) / (settings.w + settings.gap));
+    var rows = Math.floor((usableH + settings.gap) / (settings.h + settings.gap));
+    var fit = true;
+    if (cols < 1) { cols = 1; fit = false; }
+    if (rows < 1) { rows = 1; fit = false; }
+    var fitScale = 1;
+    if (!fit) {
+      fitScale = Math.min(usableW / settings.w, usableH / settings.h, 1);
+    }
+    return { cols: cols, rows: rows, perPage: cols * rows, fitScale: fitScale };
+  }
+
+  function buildExamRoomText(row) {
+    var grade = String(row['시험실(학년)'] == null ? '' : row['시험실(학년)']).trim();
+    var ban = String(row['시험실(반)'] == null ? '' : row['시험실(반)']).trim();
+    var count = String(row['응시인원'] == null ? '' : row['응시인원']).trim();
+    var roomPart = ban ? (grade + '-' + ban) : grade;
+    return esc(roomPart) + ' (' + esc(count) + '명)';
+  }
+
+  function buildCoverHTML(row) {
+    return (
+      '<div class="cover-inner">' +
+        '<div class="cover-title">' +
+          '<div class="t-line">' + esc(row['학년도']) + '학년도</div>' +
+          '<div class="t-line">' + esc(row['학기']) + '학기 ' + esc(row['차수']) + '차 정기시험</div>' +
+        '</div>' +
+        '<table class="cover-table">' +
+          '<colgroup><col class="col-lbl"><col class="col-val"></colgroup>' +
+          '<tr><td class="lbl">과목</td><td class="val">' + esc(row['과목']) + '</td></tr>' +
+          '<tr><td class="lbl">일시</td><td class="val">' + esc(row['일시']) + '</td></tr>' +
+          '<tr><td class="lbl"><div>시험실</div><div class="lbl-sub">(응시인원)</div></td><td class="val">' + buildExamRoomText(row) + '</td></tr>' +
+        '</table>' +
+      '</div>'
+    );
+  }
+
+  function fitTextToCell(el, maxPx, minPx) {
+    var size = maxPx;
+    el.style.fontSize = size + 'px';
+    var guard = 0;
+    while ((el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1) && size > minPx && guard < 300) {
+      size -= 1;
+      el.style.fontSize = size + 'px';
+      guard++;
+    }
+  }
+
+  function applyAutoFit(pageEl, hpx, fontScale) {
+    var titleMax = hpx * 0.09 * fontScale;
+    var lblMax = hpx * 0.095 * fontScale;
+    var valMax = hpx * 0.085 * fontScale;
+    var minPx = 6;
+
+    var titles = pageEl.querySelectorAll('.t-line');
+    for (var i = 0; i < titles.length; i++) fitTextToCell(titles[i], titleMax, minPx);
+
+    var lbls = pageEl.querySelectorAll('.lbl');
+    for (var j = 0; j < lbls.length; j++) fitTextToCell(lbls[j], lblMax, minPx);
+
+    var vals = pageEl.querySelectorAll('.val');
+    for (var k = 0; k < vals.length; k++) fitTextToCell(vals[k], valMax, minPx);
+  }
+
+  function chunk(arr, size) {
+    var out = [];
+    for (var i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
+
+  function renderPreview() {
+    var previewArea = $('previewArea');
+    previewArea.innerHTML = '';
+
+    if (!state.rows.length) {
+      previewArea.innerHTML = '<div class="empty-hint">엑셀 파일을 업로드하면 미리보기가 표시됩니다.</div>';
+      $('generatePdfBtn').disabled = true;
+      $('layoutInfo').textContent = '';
+      return;
+    }
+
+    var s = getSettings();
+    var page = getPageDims(s.orientation);
+    var layout = computeLayout(s);
+    var pages = chunk(state.rows, layout.perPage);
+
+    var pageWpx = mmToPx(page.w);
+    var pageHpx = mmToPx(page.h);
+    var marginPx = mmToPx(s.margin);
+    var gapPx = mmToPx(s.gap);
+    var coverWpx = mmToPx(s.w);
+    var coverHpx = mmToPx(s.h);
+
+    pages.forEach(function (pageRows) {
+      var pageEl = document.createElement('div');
+      pageEl.className = 'pdf-page';
+      pageEl.style.width = pageWpx + 'px';
+      pageEl.style.height = pageHpx + 'px';
+      pageEl.style.padding = marginPx + 'px';
+      pageEl.style.boxSizing = 'border-box';
+
+      var grid = document.createElement('div');
+      grid.className = 'cover-grid';
+      grid.style.gridTemplateColumns = 'repeat(' + layout.cols + ', ' + coverWpx + 'px)';
+      grid.style.gridAutoRows = coverHpx + 'px';
+      grid.style.gap = gapPx + 'px';
+      grid.style.justifyContent = 'center';
+      grid.style.alignContent = 'center';
+      if (layout.fitScale < 1) {
+        grid.style.transform = 'scale(' + layout.fitScale + ')';
+      }
+
+      pageRows.forEach(function (row) {
+        var cell = document.createElement('div');
+        cell.className = 'cover-box' + (s.cutGuide && layout.perPage > 1 ? ' cut-guide' : '');
+        cell.style.width = coverWpx + 'px';
+        cell.style.height = coverHpx + 'px';
+        cell.innerHTML = buildCoverHTML(row);
+        grid.appendChild(cell);
+      });
+
+      pageEl.appendChild(grid);
+      previewArea.appendChild(pageEl);
+
+      applyAutoFit(pageEl, coverHpx, s.fontScale);
+    });
+
+    var infoMsg = 'A4 한 장당 ' + layout.perPage + '개 배치 (가로 ' + layout.cols + ' × 세로 ' + layout.rows + ') · 총 ' + pages.length + '페이지';
+    if (layout.fitScale < 1) {
+      infoMsg += ' · 입력 크기가 용지보다 커서 ' + Math.round(layout.fitScale * 100) + '%로 자동 축소됨';
+    }
+    $('layoutInfo').textContent = infoMsg;
+    $('generatePdfBtn').disabled = false;
+  }
+
+  // ----- Excel parsing -----
+  function parseExcelFile(file) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var data = new Uint8Array(e.target.result);
+        var wb = XLSX.read(data, { type: 'array' });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var headerRow = XLSX.utils.sheet_to_json(ws, { header: 1 })[0] || [];
+        var missing = REQUIRED_COLS.filter(function (c) { return headerRow.indexOf(c) === -1; });
+        if (missing.length) {
+          $('fileStatus').innerHTML = '<span class="err">엑셀에 다음 열이 없습니다: ' + missing.join(', ') + '</span>';
+          return;
+        }
+        var json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+        json = json.filter(function (r) {
+          return REQUIRED_COLS.some(function (c) { return String(r[c] || '').trim() !== ''; });
+        });
+        if (!json.length) {
+          $('fileStatus').innerHTML = '<span class="err">읽을 수 있는 데이터 행이 없습니다.</span>';
+          return;
+        }
+        state.rows = json;
+        state.fileName = file.name;
+        $('fileStatus').innerHTML = '<span class="ok">' + esc(file.name) + ' · ' + json.length + '개 표지 불러옴</span>';
+        renderPreview();
+      } catch (err) {
+        $('fileStatus').innerHTML = '<span class="err">파일을 읽는 중 오류가 발생했습니다: ' + esc(err.message) + '</span>';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function downloadTemplate() {
+    var ws = XLSX.utils.json_to_sheet(SAMPLE_ROWS, { header: REQUIRED_COLS });
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '시험표지');
+    XLSX.writeFile(wb, '시험지_봉투_표지_양식.xlsx');
+  }
+
+  // ----- PDF generation -----
+  function generatePDF() {
+    var pages = document.querySelectorAll('.pdf-page');
+    if (!pages.length) return;
+    var s = getSettings();
+    var page = getPageDims(s.orientation);
+    var jsPDFCtor = window.jspdf.jsPDF;
+    var doc = new jsPDFCtor({ unit: 'mm', format: 'a4', orientation: s.orientation });
+
+    $('generatePdfBtn').disabled = true;
+    $('genStatus').textContent = 'PDF 생성 중... (0/' + pages.length + ')';
+
+    var i = 0;
+    function next() {
+      if (i >= pages.length) {
+        doc.save('시험지_봉투_표지.pdf');
+        $('genStatus').textContent = '완료! 다운로드 폴더를 확인하세요.';
+        $('generatePdfBtn').disabled = false;
+        return;
+      }
+      html2canvas(pages[i], { scale: 2, backgroundColor: '#ffffff' }).then(function (canvas) {
+        var imgData = canvas.toDataURL('image/png');
+        if (i > 0) doc.addPage('a4', s.orientation);
+        doc.addImage(imgData, 'PNG', 0, 0, page.w, page.h);
+        i++;
+        $('genStatus').textContent = 'PDF 생성 중... (' + i + '/' + pages.length + ')';
+        setTimeout(next, 0);
+      }).catch(function (err) {
+        $('genStatus').textContent = 'PDF 생성 중 오류: ' + err.message;
+        $('generatePdfBtn').disabled = false;
+      });
+    }
+    next();
+  }
+
+  // ----- Wire up events -----
+  function init() {
+    $('fileInput').addEventListener('change', function (e) {
+      if (e.target.files && e.target.files[0]) parseExcelFile(e.target.files[0]);
+    });
+    $('templateBtn').addEventListener('click', downloadTemplate);
+    ['widthMM', 'heightMM', 'marginMM', 'gapMM', 'fontScale', 'cutGuide'].forEach(function (id) {
+      $(id).addEventListener('input', renderPreview);
+      $(id).addEventListener('change', renderPreview);
+    });
+    document.querySelectorAll('input[name="orientation"]').forEach(function (el) {
+      el.addEventListener('change', renderPreview);
+    });
+    $('generatePdfBtn').addEventListener('click', generatePDF);
+    $('downloadProgramBtn').addEventListener('click', function () {
+      var blob = new Blob([ORIGINAL_HTML], { type: 'text/html;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = '시험지_봉투_표지_생성기.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    });
+    renderPreview();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
