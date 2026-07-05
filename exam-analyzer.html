@@ -47,7 +47,9 @@
   header .eyebrow{
     font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;
     color:#9FB3D6;font-weight:600;margin-bottom:10px;
+    text-decoration:none;display:inline-block;transition:color .15s;
   }
+  header .eyebrow:hover{color:#fff;text-decoration:underline;}
   header h1{
     margin:0 0 10px;
     font-size:clamp(22px,4vw,30px);
@@ -419,7 +421,7 @@
 <body>
 
 <header>
-  <div class="eyebrow">슬기로운 학교생활</div>
+  <a class="eyebrow" href="https://zoryong.github.io/Sch-Prgm">슬기로운 학교생활</a>
   <h1>정기시험 성적 분석 프로그램</h1>
   <p>NEIS에서 다운 받은 '정기시험 교과목별 일람표' 혹은 '학생답 정오표' PDF 파일을 올리면 정기시험 성적 처리를 합니다. 모든 처리는 로컬 컴퓨터에서 이루어지며, 외부로 전송되지 않습니다.</p>
 </header>
