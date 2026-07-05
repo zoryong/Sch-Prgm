@@ -116,16 +116,6 @@
   }
   .card + .card{margin-top:14px;}
 
-  .mode-toggle{display:flex;gap:8px;margin-bottom:16px;}
-  .mode-btn{
-    flex:1;padding:13px 14px;border-radius:11px;border:1.5px solid var(--line);
-    background:var(--card);color:var(--ink-soft);font-family:var(--sans);font-weight:700;font-size:13.5px;
-    cursor:pointer;transition:.15s border-color, .15s background, .15s color;
-    display:flex;align-items:center;justify-content:center;gap:7px;
-  }
-  .mode-btn:hover:not(.active){border-color:var(--teal);color:var(--ink);}
-  .mode-btn.active{background:var(--violet);border-color:var(--violet);color:#fff;}
-
   .program-download-row{display:flex;justify-content:flex-end;margin-bottom:12px;}
 
   .drop{
@@ -155,7 +145,21 @@
     display:flex;align-items:center;gap:12px;
     background:#FAFBFC;border:1px solid var(--line);border-radius:10px;
     padding:10px 14px;border-left:3px solid var(--line);
+    transition:opacity .12s, border-color .12s;
   }
+  .file-row.dragging{opacity:.4;}
+  .file-row.drag-over-top{border-top:2px solid var(--teal);}
+  .file-row.drag-over-bottom{border-bottom:2px solid var(--teal);}
+  .fr-drag-handle{
+    flex:0 0 auto;font-size:15px;color:var(--ink-soft);cursor:grab;
+    padding:0 2px;user-select:none;line-height:1;
+  }
+  .fr-drag-handle:active{cursor:grabbing;}
+  .reorder-hint{
+    margin-top:10px;padding:9px 12px;font-size:12px;color:var(--ink-soft);
+    background:var(--teal-soft);border-radius:8px;line-height:1.5;
+  }
+  .reorder-hint b{color:var(--teal);}
   .file-row .fr-icon{font-size:16px;flex:0 0 auto;}
   .file-row .fr-meta{flex:1;min-width:0;}
   .file-row .fr-name{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -324,8 +328,8 @@
       <div class="guide-steps">
         <div class="guide-step">
           <div class="gs-num">STEP 01</div>
-          <div class="gs-title">형식 선택 및 파일 선택</div>
-          <div class="gs-body">위쪽에서 엑셀/PDF 중 합칠 형식을 선택한 뒤, 파일들을 클릭하거나 끌어다 놓아 한 번에 여러 개 추가하세요. 같은 파일을 여러 번 추가해도 중복 없이 한 번만 처리됩니다.</div>
+          <div class="gs-title">파일 선택</div>
+          <div class="gs-body">합칠 엑셀 파일들 또는 PDF 파일들을 클릭하거나 끌어다 놓아 한 번에 여러 개 추가하세요. 형식은 자동으로 인식되며, 엑셀과 PDF는 함께 합칠 수 없어 다른 형식을 올리면 안내와 함께 제외됩니다. 같은 파일을 여러 번 추가해도 중복 없이 한 번만 처리됩니다. 목록에서 각 항목 왼쪽의 <b>⠿</b> 를 드래그하면 순서를 바꿀 수 있습니다.</div>
         </div>
         <div class="guide-step">
           <div class="gs-num">STEP 02</div>
@@ -351,20 +355,16 @@
     <div class="rail"><div class="num">01</div><div class="line"></div></div>
     <div class="body">
       <h2>파일 선택</h2>
-      <div class="desc" id="step1Desc">합칠 엑셀 파일을 여러 개 선택하거나 끌어다 놓으세요.</div>
+      <div class="desc" id="step1Desc">합칠 엑셀 파일들 또는 PDF 파일들을 여러 개 선택하거나 끌어다 놓으세요. 형식은 자동으로 인식됩니다.</div>
       <div class="card">
-        <div class="mode-toggle">
-          <button class="mode-btn active" id="modeExcelBtn" type="button">📊 엑셀 파일 통합</button>
-          <button class="mode-btn" id="modePdfBtn" type="button">📄 PDF 파일 통합</button>
-        </div>
-
         <div id="dropZone" class="drop">
-          <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,.xlsb" multiple>
-          <div class="icon" id="dropIcon">📊</div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,.xlsb,.pdf" multiple>
+          <div class="icon" id="dropIcon">📁</div>
           <div class="t1" id="dropT1">클릭해서 여러 파일 선택 또는 끌어다 놓기</div>
-          <div class="t2" id="dropT2">.xlsx / .xls / .xlsm / .xlsb · 여러 개 동시 선택 가능</div>
+          <div class="t2" id="dropT2">엑셀(.xlsx 등) 또는 PDF · 여러 개 동시 선택 가능 · 한 번에 한 형식만</div>
         </div>
         <div class="hint" id="pickStatus" style="margin-top:10px;"></div>
+        <div class="reorder-hint" id="reorderHint" style="display:none;">💡 파일을 올리면, 항목 왼쪽의 <b>⠿</b> 를 드래그해서 순서를 바꿀 수 있습니다.</div>
         <div class="file-list" id="fileList"></div>
       </div>
     </div>
@@ -375,9 +375,9 @@
     <div class="rail"><div class="num">02</div></div>
     <div class="body">
       <h2>합치기 &amp; 저장</h2>
-      <div class="desc" id="step2Desc">선택한 모든 파일의 시트를 업로드 순서대로 하나의 엑셀 파일로 합칩니다.</div>
+      <div class="desc" id="step2Desc">선택한 파일들을 업로드 순서대로 하나로 합칩니다.</div>
       <div class="card">
-        <div class="note-box" id="modeNoteBox"><b>시트 이름 규칙:</b> 파일에 시트가 1개면 "파일이름", 여러 개면 "파일이름_시트이름"으로 자동 지정됩니다.</div>
+        <div class="note-box" id="modeNoteBox">파일을 올리면 엑셀은 시트 단위로, PDF는 페이지 단위로 자동 병합됩니다. (엑셀 시트가 1개면 "파일이름", 여러 개면 "파일이름_시트이름"으로 자동 지정)</div>
 
         <div class="action-row">
           <button class="primary" id="mergeBtn" type="button" disabled>합치기</button>
@@ -421,6 +421,7 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
   const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
   const pickStatus = document.getElementById('pickStatus');
+  const reorderHint = document.getElementById('reorderHint');
   const fileListEl = document.getElementById('fileList');
   const mergeBtn = document.getElementById('mergeBtn');
   const resetBtn = document.getElementById('resetBtn');
@@ -435,8 +436,6 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
   const saveBtn = document.getElementById('saveBtn');
   const saveHint = document.getElementById('saveHint');
   const saveSuccessBox = document.getElementById('saveSuccessBox');
-  const modeExcelBtn = document.getElementById('modeExcelBtn');
-  const modePdfBtn = document.getElementById('modePdfBtn');
   const dropIcon = document.getElementById('dropIcon');
   const dropT1 = document.getElementById('dropT1');
   const dropT2 = document.getElementById('dropT2');
@@ -444,6 +443,15 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
   const step2Desc = document.getElementById('step2Desc');
   const modeNoteBox = document.getElementById('modeNoteBox');
 
+  const NEUTRAL_INFO = {
+    accept: '.xlsx,.xls,.xlsm,.xlsb,.pdf',
+    icon: '📁',
+    t1: '클릭해서 여러 파일 선택 또는 끌어다 놓기',
+    t2: '엑셀(.xlsx 등) 또는 PDF · 여러 개 동시 선택 가능 · 한 번에 한 형식만',
+    desc1: '합칠 엑셀 파일들 또는 PDF 파일들을 여러 개 선택하거나 끌어다 놓으세요. 형식은 자동으로 인식됩니다.',
+    desc2: '선택한 파일들을 업로드 순서대로 하나로 합칩니다.',
+    noteBox: '파일을 올리면 엑셀은 시트 단위로, PDF는 페이지 단위로 자동 병합됩니다. (엑셀 시트가 1개면 "파일이름", 여러 개면 "파일이름_시트이름"으로 자동 지정)',
+  };
   const MODE_INFO = {
     excel: {
       accept: '.xlsx,.xls,.xlsm,.xlsb',
@@ -467,17 +475,21 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
     },
   };
 
-  let currentMode = 'excel';
-  const modeStore = {
-    excel: { fileEntries: [], fileKeys: new Set(), mergedResult: null, mergeSummary: null },
-    pdf:   { fileEntries: [], fileKeys: new Set(), mergedResult: null, mergeSummary: null },
-  };
+  function detectFileType(file){
+    const name = file.name.toLowerCase();
+    if (/\.(xlsx|xls|xlsm|xlsb)$/.test(name)) return 'excel';
+    if (/\.pdf$/.test(name)) return 'pdf';
+    return null;
+  }
+
+  let currentMode = null; // null | 'excel' | 'pdf' - 업로드된 파일로부터 자동으로 정해짐
 
   let fileEntries = [];
   let fileKeys = new Set();
   let isProcessing = false;
   let mergedResult = null;
   let mergeSummary = null;
+  let dragSrcKey = null;
 
   function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function escapeAttr(s){ return escapeHtml(s); }
@@ -552,6 +564,7 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
   }
 
   function renderFileList(){
+    reorderHint.style.display = fileEntries.length > 1 ? 'block' : 'none';
     if (!fileEntries.length) {
       fileListEl.innerHTML = '<div class="file-empty">아직 추가된 파일이 없습니다.</div>';
       return;
@@ -572,7 +585,8 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
         badge = '<span class="fr-badge pending">대기중</span>';
         sub = humanSize(e.file.size);
       }
-      return '<div class="file-row status-' + e.status + '">' +
+      return '<div class="file-row status-' + e.status + '" draggable="' + (!isProcessing) + '" data-key="' + escapeAttr(e.key) + '">' +
+        '<div class="fr-drag-handle" title="드래그해서 순서 변경">⠿</div>' +
         '<div class="fr-icon">📄</div>' +
         '<div class="fr-meta">' +
           '<div class="fr-name">' + escapeHtml(e.file.name) + '</div>' +
@@ -586,20 +600,90 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
     fileListEl.querySelectorAll('button.remove').forEach(btn => {
       btn.addEventListener('click', () => removeFile(btn.dataset.key));
     });
+    attachDragHandlers();
+  }
+
+  function attachDragHandlers(){
+    fileListEl.querySelectorAll('.file-row').forEach(row => {
+      row.addEventListener('dragstart', e => {
+        if (isProcessing) { e.preventDefault(); return; }
+        dragSrcKey = row.dataset.key;
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', dragSrcKey); } catch (err) {}
+      });
+      row.addEventListener('dragend', () => {
+        row.classList.remove('dragging');
+        fileListEl.querySelectorAll('.file-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+        dragSrcKey = null;
+      });
+      row.addEventListener('dragover', e => {
+        if (isProcessing || !dragSrcKey || row.dataset.key === dragSrcKey) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const rect = row.getBoundingClientRect();
+        const isAfter = (e.clientY - rect.top) > rect.height / 2;
+        row.classList.toggle('drag-over-bottom', isAfter);
+        row.classList.toggle('drag-over-top', !isAfter);
+      });
+      row.addEventListener('dragleave', () => {
+        row.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+      row.addEventListener('drop', e => {
+        if (isProcessing || !dragSrcKey || row.dataset.key === dragSrcKey) return;
+        e.preventDefault();
+        const rect = row.getBoundingClientRect();
+        const isAfter = (e.clientY - rect.top) > rect.height / 2;
+        reorderFiles(dragSrcKey, row.dataset.key, isAfter);
+      });
+    });
+  }
+
+  function reorderFiles(srcKey, targetKey, insertAfter){
+    const srcIdx = fileEntries.findIndex(e => e.key === srcKey);
+    if (srcIdx === -1) return;
+    const moved = fileEntries.splice(srcIdx, 1)[0];
+    const targetIdx = fileEntries.findIndex(e => e.key === targetKey);
+    if (targetIdx === -1) {
+      fileEntries.push(moved);
+    } else {
+      const insertIdx = insertAfter ? targetIdx + 1 : targetIdx;
+      fileEntries.splice(insertIdx, 0, moved);
+    }
+    renderFileList();
+    pickStatus.textContent = '파일 순서를 변경했습니다.';
   }
 
   function removeFile(key){
     if (isProcessing) return;
     const idx = fileEntries.findIndex(e => e.key === key);
     if (idx >= 0) { fileEntries.splice(idx, 1); fileKeys.delete(key); }
+    if (fileEntries.length === 0) {
+      currentMode = null;
+      mergedResult = null;
+      mergeSummary = null;
+      resultArea.style.display = 'none';
+      saveSuccessBox.style.display = 'none';
+      applyModeUI();
+    }
     renderFileList();
     updateMergeButtonState();
   }
 
   function addFiles(newFiles){
     if (isProcessing) return;
-    let added = 0, dup = 0;
+    let added = 0, dup = 0, unsupported = 0;
+    const mismatched = [];
     for (const f of newFiles) {
+      const type = detectFileType(f);
+      if (!type) { unsupported++; continue; }
+      if (currentMode === null) {
+        currentMode = type;
+        applyModeUI();
+      } else if (type !== currentMode) {
+        mismatched.push(f.name);
+        continue;
+      }
       const key = fileKey(f);
       if (fileKeys.has(key)) { dup++; continue; }
       fileKeys.add(key);
@@ -608,9 +692,16 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
     }
     renderFileList();
     updateMergeButtonState();
-    if (added > 0 || dup > 0) {
-      pickStatus.textContent = added + '개 파일이 추가되었습니다.' + (dup > 0 ? (' (중복 ' + dup + '개는 제외됨)') : '');
+
+    const parts = [];
+    if (added > 0) parts.push(added + '개 파일이 추가되었습니다.');
+    if (dup > 0) parts.push('중복 ' + dup + '개는 제외됨.');
+    if (unsupported > 0) parts.push('지원하지 않는 형식 ' + unsupported + '개는 제외됨.');
+    if (mismatched.length > 0) {
+      const modeLabel = currentMode === 'pdf' ? 'PDF' : '엑셀';
+      parts.push('⚠️ 지금은 ' + modeLabel + ' 파일을 합치는 중이라 다른 형식(' + mismatched.join(', ') + ')은 추가되지 않았습니다. 두 형식을 함께 합칠 수는 없어요.');
     }
+    if (parts.length > 0) pickStatus.textContent = parts.join(' ');
   }
 
   dropZone.addEventListener('click', () => { if (!isProcessing) fileInput.click(); });
@@ -817,6 +908,7 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
     fileKeys = new Set();
     mergedResult = null;
     mergeSummary = null;
+    currentMode = null;
     pickStatus.textContent = '';
     renderFileList();
     updateMergeButtonState();
@@ -824,7 +916,7 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
     progressWrap.style.display = 'none';
     saveSuccessBox.style.display = 'none';
     fileInput.value = '';
-    outFileName.value = MODE_INFO[currentMode].defaultFileName();
+    applyModeUI();
   });
 
   async function saveWorkbook(wb, filename){
@@ -930,9 +1022,7 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
   });
 
   function applyModeUI(){
-    const m = MODE_INFO[currentMode];
-    modeExcelBtn.classList.toggle('active', currentMode === 'excel');
-    modePdfBtn.classList.toggle('active', currentMode === 'pdf');
+    const m = currentMode ? MODE_INFO[currentMode] : NEUTRAL_INFO;
     fileInput.accept = m.accept;
     dropIcon.textContent = m.icon;
     dropT1.textContent = m.t1;
@@ -940,48 +1030,11 @@ const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
     step1Desc.textContent = m.desc1;
     step2Desc.textContent = m.desc2;
     modeNoteBox.innerHTML = m.noteBox;
+    outFileName.value = currentMode ? MODE_INFO[currentMode].defaultFileName() : '';
   }
-
-  function switchMode(newMode){
-    if (newMode === currentMode || isProcessing) return;
-
-    // 현재 모드 상태 저장
-    const cur = modeStore[currentMode];
-    cur.fileEntries = fileEntries;
-    cur.fileKeys = fileKeys;
-    cur.mergedResult = mergedResult;
-    cur.mergeSummary = mergeSummary;
-
-    // 새 모드 상태 불러오기
-    currentMode = newMode;
-    const next = modeStore[currentMode];
-    fileEntries = next.fileEntries;
-    fileKeys = next.fileKeys;
-    mergedResult = next.mergedResult;
-    mergeSummary = next.mergeSummary;
-
-    applyModeUI();
-    pickStatus.textContent = '';
-    renderFileList();
-    updateMergeButtonState();
-    progressWrap.style.display = 'none';
-    saveSuccessBox.style.display = 'none';
-    skipWarnArea.innerHTML = '';
-
-    if (mergedResult) {
-      renderMergeStats(mergeSummary);
-      resultArea.style.display = 'block';
-    } else {
-      resultArea.style.display = 'none';
-    }
-    outFileName.value = MODE_INFO[currentMode].defaultFileName();
-  }
-
-  modeExcelBtn.addEventListener('click', () => switchMode('excel'));
-  modePdfBtn.addEventListener('click', () => switchMode('pdf'));
 
   // 초기화
-  outFileName.value = MODE_INFO[currentMode].defaultFileName();
+  applyModeUI();
   saveHint.textContent = window.showSaveFilePicker
     ? '저장 위치와 파일명을 직접 선택할 수 있어요.'
     : '이 브라우저는 저장 위치 선택을 지원하지 않아 기본 다운로드 폴더에 저장됩니다. (파일명은 지정 가능)';
