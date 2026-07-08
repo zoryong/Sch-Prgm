@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <base target="_top">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>배드민턴 모임 친목 저녁 식사 신청</title>
@@ -20,14 +21,8 @@
       --radius: 18px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
 
     body {
       min-height: 100vh;
@@ -40,10 +35,7 @@
       padding: 24px 16px 40px;
     }
 
-    .page {
-      max-width: 520px;
-      margin: 0 auto;
-    }
+    .page { max-width: 520px; margin: 0 auto; }
 
     .badge {
       display: inline-block;
@@ -54,7 +46,6 @@
       color: var(--accent-dark);
       font-size: 13px;
       font-weight: 700;
-      letter-spacing: 0.02em;
     }
 
     .card {
@@ -74,9 +65,7 @@
     .card-header h1 {
       margin: 0 0 8px;
       font-size: clamp(22px, 5vw, 28px);
-      line-height: 1.35;
       font-weight: 800;
-      letter-spacing: -0.02em;
     }
 
     .card-header p {
@@ -85,19 +74,9 @@
       font-size: 15px;
     }
 
-    .card-body {
-      padding: 24px;
-    }
-
-    .notice p {
-      margin: 0 0 14px;
-      color: var(--text);
-      font-size: 15px;
-    }
-
-    .notice p:last-child {
-      margin-bottom: 0;
-    }
+    .card-body { padding: 24px; }
+    .notice p { margin: 0 0 14px; font-size: 15px; }
+    .notice p:last-child { margin-bottom: 0; }
 
     .info-box {
       margin: 22px 0 0;
@@ -121,29 +100,10 @@
       font-weight: 800;
     }
 
-    .info-value {
-      color: var(--text);
-      font-size: 16px;
-      font-weight: 600;
-    }
-
-    .divider {
-      height: 1px;
-      margin: 24px 0;
-      background: var(--line);
-    }
-
-    .form-title {
-      margin: 0 0 8px;
-      font-size: 18px;
-      font-weight: 800;
-    }
-
-    .form-desc {
-      margin: 0 0 18px;
-      color: var(--text-soft);
-      font-size: 14px;
-    }
+    .info-value { font-size: 16px; font-weight: 600; }
+    .divider { height: 1px; margin: 24px 0; background: var(--line); }
+    .form-title { margin: 0 0 8px; font-size: 18px; font-weight: 800; }
+    .form-desc { margin: 0 0 18px; color: var(--text-soft); font-size: 14px; }
 
     label {
       display: block;
@@ -157,11 +117,8 @@
       padding: 14px 16px;
       border: 1px solid var(--line);
       border-radius: 12px;
-      background: #fff;
-      color: var(--text);
       font-size: 16px;
       outline: none;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
     input[type="text"]:focus {
@@ -180,21 +137,10 @@
       font-size: 16px;
       font-weight: 800;
       cursor: pointer;
-      transition: background 0.15s ease, transform 0.05s ease;
     }
 
-    button:hover:not(:disabled) {
-      background: var(--accent-dark);
-    }
-
-    button:active:not(:disabled) {
-      transform: translateY(1px);
-    }
-
-    button:disabled {
-      opacity: 0.65;
-      cursor: not-allowed;
-    }
+    button:hover:not(:disabled) { background: var(--accent-dark); }
+    button:disabled { opacity: 0.65; cursor: not-allowed; }
 
     .message {
       display: none;
@@ -206,28 +152,10 @@
       text-align: center;
     }
 
-    .message.show {
-      display: block;
-    }
-
-    .message.success {
-      background: var(--accent-soft);
-      color: var(--success);
-      border: 1px solid #c7e5df;
-    }
-
-    .message.error {
-      background: #fdecea;
-      color: var(--error);
-      border: 1px solid #f5c6cb;
-    }
-
-    .footer-note {
-      margin-top: 18px;
-      color: var(--text-soft);
-      font-size: 13px;
-      text-align: center;
-    }
+    .message.show { display: block; }
+    .message.success { background: var(--accent-soft); color: var(--success); border: 1px solid #c7e5df; }
+    .message.error { background: #fdecea; color: var(--error); border: 1px solid #f5c6cb; }
+    .footer-note { margin-top: 18px; color: var(--text-soft); font-size: 13px; text-align: center; }
   </style>
 </head>
 <body>
@@ -280,7 +208,6 @@
           >
 
           <button type="submit" id="submitBtn">제출</button>
-
           <div id="message" class="message" role="alert" aria-live="polite"></div>
         </form>
       </section>
@@ -290,9 +217,6 @@
   </main>
 
   <script>
-    // Google Apps Script Web App 배포 URL을 아래에 붙여 넣으세요.
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzxdg0Zt_Ze9RGX-xIGMgs2FjMRorqYTn2N2QW7-Er2khaMtI6eJz36VeplaHP-lDX5/exec';
-
     const form = document.getElementById('rsvpForm');
     const nameInput = document.getElementById('name');
     const submitBtn = document.getElementById('submitBtn');
@@ -308,40 +232,12 @@
       messageEl.className = 'message';
     }
 
-    function submitViaJsonp(name) {
-      return new Promise(function (resolve, reject) {
-        var callbackName = 'rsvpCallback_' + Date.now();
-        var timeoutId = setTimeout(function () {
-          cleanup();
-          reject(new Error('timeout'));
-        }, 15000);
-
-        function cleanup() {
-          clearTimeout(timeoutId);
-          delete window[callbackName];
-          if (script.parentNode) {
-            script.parentNode.removeChild(script);
-          }
-        }
-
-        window[callbackName] = function (result) {
-          cleanup();
-          resolve(result);
-        };
-
-        var script = document.createElement('script');
-        script.src = APPS_SCRIPT_URL
-          + '?name=' + encodeURIComponent(name)
-          + '&callback=' + encodeURIComponent(callbackName);
-        script.onerror = function () {
-          cleanup();
-          reject(new Error('script error'));
-        };
-        document.body.appendChild(script);
-      });
+    function resetButton() {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '제출';
     }
 
-    form.addEventListener('submit', async function (event) {
+    form.addEventListener('submit', function (event) {
       event.preventDefault();
       hideMessage();
 
@@ -353,29 +249,24 @@
         return;
       }
 
-      if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
-        showMessage('Apps Script URL이 설정되지 않았습니다.', 'error');
-        return;
-      }
-
       submitBtn.disabled = true;
       submitBtn.textContent = '제출 중...';
 
-      try {
-        const result = await submitViaJsonp(name);
-
-        if (result.ok) {
-          showMessage(result.message || '참석 신청이 완료되었습니다.', 'success');
-          form.reset();
-        } else {
-          showMessage(result.message || '이미 신청하셨습니다.', 'error');
-        }
-      } catch (error) {
-        showMessage('전송에 실패했습니다. Apps Script에 Code.gs를 붙여넣고 새 배포했는지 확인해 주세요.', 'error');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '제출';
-      }
+      google.script.run
+        .withSuccessHandler(function (result) {
+          if (result.ok) {
+            showMessage(result.message || '참석 신청이 완료되었습니다.', 'success');
+            form.reset();
+          } else {
+            showMessage(result.message || '이미 신청하셨습니다.', 'error');
+          }
+          resetButton();
+        })
+        .withFailureHandler(function () {
+          showMessage('전송에 실패했습니다. 잠시 후 다시 시도해 주세요.', 'error');
+          resetButton();
+        })
+        .submitRsvp(name);
     });
   </script>
 </body>
