@@ -13,48 +13,55 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.TEXT);
   }
 
-  return submitRsvp(name);
-}
-
-function doPost(e) {
-  var name = (e.parameter.name || '').trim();
-  return submitRsvp(name);
-}
-
-function submitRsvp(name) {
   try {
-    if (!name) {
-      return jsonResponse({
-        ok: false,
-        message: '성명을 입력해 주세요.'
-      });
-    }
-
-    var sheet = getOrCreateSheet();
-    var rows = sheet.getDataRange().getValues();
-
-    for (var i = 1; i < rows.length; i++) {
-      var existingName = String(rows[i][1] || '').trim();
-      if (existingName === name) {
-        return jsonResponse({
-          ok: false,
-          message: '이미 신청하셨습니다.'
-        });
-      }
-    }
-
-    sheet.appendRow([new Date(), name]);
-
-    return jsonResponse({
-      ok: true,
-      message: '참석 신청이 완료되었습니다.'
-    });
+    return jsonResponse(processSubmission(name));
   } catch (error) {
     return jsonResponse({
       ok: false,
       message: '오류가 발생했습니다. 다시 시도해 주세요.'
     });
   }
+}
+
+function doPost(e) {
+  try {
+    var name = (e.parameter.name || '').trim();
+    return jsonResponse(processSubmission(name));
+  } catch (error) {
+    return jsonResponse({
+      ok: false,
+      message: '오류가 발생했습니다. 다시 시도해 주세요.'
+    });
+  }
+}
+
+function processSubmission(name) {
+  if (!name) {
+    return {
+      ok: false,
+      message: '성명을 입력해 주세요.'
+    };
+  }
+
+  var sheet = getOrCreateSheet();
+  var rows = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < rows.length; i++) {
+    var existingName = String(rows[i][1] || '').trim();
+    if (existingName === name) {
+      return {
+        ok: false,
+        message: '이미 신청하셨습니다.'
+      };
+    }
+  }
+
+  sheet.appendRow([new Date(), name]);
+
+  return {
+    ok: true,
+    message: '참석 신청이 완료되었습니다.'
+  };
 }
 
 function getOrCreateSheet() {

@@ -329,8 +329,23 @@
       submitBtn.textContent = '제출 중...';
 
       try {
-        const url = APPS_SCRIPT_URL + '?name=' + encodeURIComponent(name);
-        const response = await fetch(url);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(function () {
+          controller.abort();
+        }, 15000);
+
+        const query = new URLSearchParams({ name: name });
+        const response = await fetch(APPS_SCRIPT_URL + '?' + query.toString(), {
+          method: 'GET',
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error('bad response');
+        }
+
         const result = await response.json();
 
         if (result.ok) {
