@@ -5,18 +5,27 @@
  */
 
 function doGet(e) {
-  var name = (e && e.parameter && e.parameter.name || '').trim();
+  var params = (e && e.parameter) || {};
+  var name = (params.name || '').trim();
+  var callback = (params.callback || '').trim();
 
   if (!name) {
+    if (callback) {
+      return jsonpResponse(callback, {
+        ok: false,
+        message: '성명을 입력해 주세요.'
+      });
+    }
+
     return ContentService
       .createTextOutput('배드민턴 모임 참석 신청 API')
       .setMimeType(ContentService.MimeType.TEXT);
   }
 
   try {
-    return jsonResponse(processSubmission(name));
+    return respond_(callback, processSubmission(name));
   } catch (error) {
-    return jsonResponse({
+    return respond_(callback, {
       ok: false,
       message: '오류가 발생했습니다. 다시 시도해 주세요.'
     });
@@ -33,6 +42,14 @@ function doPost(e) {
       message: '오류가 발생했습니다. 다시 시도해 주세요.'
     });
   }
+}
+
+function respond_(callback, payload) {
+  if (callback) {
+    return jsonpResponse(callback, payload);
+  }
+
+  return jsonResponse(payload);
 }
 
 function processSubmission(name) {
@@ -85,4 +102,10 @@ function jsonResponse(payload) {
   return ContentService
     .createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function jsonpResponse(callback, payload) {
+  return ContentService
+    .createTextOutput(callback + '(' + JSON.stringify(payload) + ')')
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
