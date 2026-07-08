@@ -1299,7 +1299,7 @@ processBtn.addEventListener('click', () => {
 
   const subjectLabel = document.getElementById('subjectLabel');
   if (recognizedSubject) {
-    subjectLabel.textContent = `[교과목] : ${recognizedSubject}` + (recognizedGrade ? ` (${recognizedGrade}학년)` : '');
+    subjectLabel.textContent = `교과목 : ${recognizedSubject}` + (recognizedGrade ? ` (${recognizedGrade}학년)` : '');
     subjectLabel.style.display = 'block';
   } else {
     subjectLabel.style.display = 'none';
