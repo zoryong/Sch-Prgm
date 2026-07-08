@@ -41,7 +41,7 @@
     }
 
     .page {
-      max-width: 520px;
+      max-width: 1040px;
       margin: 0 auto;
     }
 
@@ -255,10 +255,14 @@
 
     .venue-photos img {
       width: 100%;
-      height: 120px;
+      height: 240px;
       object-fit: cover;
       border-radius: 10px;
       border: 1px solid var(--line);
+    }
+
+    .venue-photos img:first-child {
+      object-position: center top;
     }
 
     .address-link {
