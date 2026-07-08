@@ -308,6 +308,39 @@
       messageEl.className = 'message';
     }
 
+    function submitViaJsonp(name) {
+      return new Promise(function (resolve, reject) {
+        var callbackName = 'rsvpCallback_' + Date.now();
+        var timeoutId = setTimeout(function () {
+          cleanup();
+          reject(new Error('timeout'));
+        }, 15000);
+
+        function cleanup() {
+          clearTimeout(timeoutId);
+          delete window[callbackName];
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+        }
+
+        window[callbackName] = function (result) {
+          cleanup();
+          resolve(result);
+        };
+
+        var script = document.createElement('script');
+        script.src = APPS_SCRIPT_URL
+          + '?name=' + encodeURIComponent(name)
+          + '&callback=' + encodeURIComponent(callbackName);
+        script.onerror = function () {
+          cleanup();
+          reject(new Error('script error'));
+        };
+        document.body.appendChild(script);
+      });
+    }
+
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
       hideMessage();
@@ -329,24 +362,7 @@
       submitBtn.textContent = '제출 중...';
 
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(function () {
-          controller.abort();
-        }, 15000);
-
-        const query = new URLSearchParams({ name: name });
-        const response = await fetch(APPS_SCRIPT_URL + '?' + query.toString(), {
-          method: 'GET',
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error('bad response');
-        }
-
-        const result = await response.json();
+        const result = await submitViaJsonp(name);
 
         if (result.ok) {
           showMessage(result.message || '참석 신청이 완료되었습니다.', 'success');
