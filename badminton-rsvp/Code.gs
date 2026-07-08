@@ -1,54 +1,28 @@
 /**
- * 배드민턴 모임 참석 신청 Google Apps Script
+ * 배드민턴 모임 참석 신청 Google Apps Script (API 전용)
  *
- * [배포 방법]
+ * [배포 방법 - index.html 방식]
  * 1. 스프레드시트 > 확장 프로그램 > Apps Script
- * 2. Code.gs 와 Index.html 내용 붙여넣기
+ * 2. 이 Code.gs 내용을 붙여넣기
  * 3. 배포 > 새 배포 > 웹 앱 (실행: 나, 액세스: 모든 사용자)
- * 4. 배포 URL을 공유 (이 URL로 접속하면 신청 페이지가 열림)
+ * 4. 배포 URL을 index.html 의 APPS_SCRIPT_URL 에 입력
  *
  * 스프레드시트 1행 헤더: 제출시간 | 성명
  */
 
 function doGet(e) {
   var params = (e && e.parameter) || {};
+  var action = (params.action || '').trim();
   var name = (params.name || '').trim();
-  var callback = (params.callback || '').trim();
+  var callback = sanitizeCallback_(params.callback);
 
-  if (name || callback) {
-    return handleApiRequest_(name, callback);
-  }
-
-  return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('배드민턴 모임 친목 저녁 식사 신청')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-function doPost(e) {
-  try {
-    var name = (e.parameter.name || '').trim();
-    return jsonResponse(processSubmission(name));
-  } catch (error) {
-    return jsonResponse({
-      ok: false,
-      message: '오류가 발생했습니다. 다시 시도해 주세요.'
+  if (action === 'ping') {
+    return respond_(callback, {
+      ok: true,
+      message: 'API ready'
     });
   }
-}
 
-function submitRsvp(name) {
-  try {
-    return processSubmission(name);
-  } catch (error) {
-    return {
-      ok: false,
-      message: '오류가 발생했습니다. 다시 시도해 주세요.'
-    };
-  }
-}
-
-function handleApiRequest_(name, callback) {
   if (!name) {
     if (callback) {
       return jsonpResponse(callback, {
@@ -57,15 +31,28 @@ function handleApiRequest_(name, callback) {
       });
     }
 
-    return ContentService
-      .createTextOutput('배드민턴 모임 참석 신청 API')
-      .setMimeType(ContentService.MimeType.TEXT);
+    return jsonResponse({
+      ok: true,
+      message: '배드민턴 모임 참석 신청 API'
+    });
   }
 
   try {
     return respond_(callback, processSubmission(name));
   } catch (error) {
     return respond_(callback, {
+      ok: false,
+      message: '오류가 발생했습니다. 다시 시도해 주세요.'
+    });
+  }
+}
+
+function doPost(e) {
+  try {
+    var name = (e.parameter.name || '').trim();
+    return jsonResponse(processSubmission(name));
+  } catch (error) {
+    return jsonResponse({
       ok: false,
       message: '오류가 발생했습니다. 다시 시도해 주세요.'
     });
@@ -124,6 +111,14 @@ function getOrCreateSheet() {
   }
 
   return sheet;
+}
+
+function sanitizeCallback_(callback) {
+  var value = (callback || '').trim();
+  if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(value)) {
+    return value;
+  }
+  return '';
 }
 
 function jsonResponse(payload) {
