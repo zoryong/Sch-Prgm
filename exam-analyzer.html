@@ -250,6 +250,13 @@
 
   .item-sort-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
 
+  .search-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+  .search-row input[type=text]{
+    flex:1;min-width:220px;padding:10px 12px;border:1px solid #C7CEDA;border-radius:9px;
+    font-size:13.5px;font-family:'Noto Sans KR',sans-serif;
+  }
+  .search-row input[type=text]:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+
   .status{
     margin-top:14px;font-size:13.5px;color:var(--ink-soft);
     display:none;align-items:center;gap:8px;
@@ -534,6 +541,7 @@
 
     <div class="panel">
       <p class="section-title">기본 현황</p>
+      <div class="hint" id="subjectLabel" style="display:none;margin-bottom:14px;font-size:24px;font-weight:800;color:var(--ink);"></div>
       <div class="stat-grid" style="grid-template-columns:minmax(140px,220px);">
         <div class="stat-card"><div class="lbl">수강생 (재적 인원)</div><div class="val num" id="statEnrolled">-</div></div>
       </div>
@@ -595,6 +603,12 @@
     <div class="panel">
       <p class="section-title">학생별 원자료</p>
       <p class="section-sub">반·번호를 기준으로 회차별 점수를 매칭했습니다. 총점이 높은 학생이 위로 오도록 정렬됩니다.</p>
+      <div class="search-row no-print">
+        <input type="text" id="studentSearchInput" placeholder="학번(예: 20522) 또는 이름으로 검색">
+        <button class="btn ghost sm" id="searchBtn" type="button">검색</button>
+        <button class="btn ghost sm" id="showAllBtn" type="button">모든 학생 보기</button>
+      </div>
+      <div class="hint" id="searchStatus" style="margin:6px 0 0;"></div>
       <details class="raw">
         <summary>
           <span class="raw-summary-main" id="rawSummary">전체 학생 명단 보기</span>
@@ -661,6 +675,9 @@ let distRoundsData = []; // [{round, taken, scores}] - populated after analysis,
 let currentBinWidth = 10;
 let fileIdSeq = 0;
 let nameByKey = new Map(); // "반-번호" -> 성명 (교과시간별출석부에서 인식, 이름이 없는 자료를 보완)
+let recognizedGrade = null; // 인식된 학년 (예: "2")
+let recognizedSubject = null; // 인식된 교과목명 (예: "물리학")
+let currentRawSearchQuery = ''; // 학생별 원자료 검색어
 
 const fileInput = document.getElementById('fileInput');
 const dropzone = document.getElementById('dropzone');
@@ -719,6 +736,9 @@ function renderFileList(){
 resetBtn.addEventListener('click', () => {
   uploadedFiles = [];
   nameByKey = new Map();
+  recognizedGrade = null;
+  recognizedSubject = null;
+  currentRawSearchQuery = '';
   renderFileList();
   enrolledInput.value = '';
   fileErrEl.style.display = 'none';
@@ -787,13 +807,17 @@ function parsePageLines(tokenLines){
   let round = null;
   let N = null;
   let answerKey = null;
+  let grade = null;
   const students = [];
+  const allLines = [];
 
   for (const tl of tokenLines) {
     const line = joinTokens(tl.items);
+    allLines.push(line);
     if (label === null || round === null) {
       const m = line.match(/(\d+)\s*학년\s+(\S+)\s+강의실(?:\s+(\d+)\s*차\s*정기시험)?/);
       if (m) {
+        if (grade === null) grade = m[1];
         if (label === null) label = m[2];
         if (round === null && m[3]) round = m[3];
       }
@@ -827,7 +851,9 @@ function parsePageLines(tokenLines){
       students.push({ seat: sm[2], name, score, wrongCount, answers });
     }
   }
-  return { label, round, N, answerKey, students };
+  if (grade === null) grade = extractGradeLevel(allLines);
+  const subject = extractSubject(allLines);
+  return { label, round, N, answerKey, students, grade, subject };
 }
 
 /* ------------------------------------------------------------
@@ -853,10 +879,13 @@ function parseGridPage(tokenLines){
 
   // exam round: look for a "고사 : N차 정기시험" line anywhere on the page
   let round = null;
-  for (const tl of tokenLines) {
-    const m = joinTokens(tl.items).match(/고사\s*:\s*(\d+)\s*차/);
+  const allLines = tokenLines.map(tl => joinTokens(tl.items));
+  for (const line of allLines) {
+    const m = line.match(/고사\s*:\s*(\d+)\s*차/);
     if (m) { round = m[1]; break; }
   }
+  const grade = extractGradeLevel(allLines);
+  const subject = extractSubject(allLines);
 
   const columns = tokenLines[colLineIdx].items.map(t => ({ label: t.str, x: t.x }));
   function nearestCol(x){
@@ -890,7 +919,7 @@ function parseGridPage(tokenLines){
     students: perColumn.get(c.label).map(s => ({ seat: s.seat, name: null, score: s.score, wrongCount: null }))
   })).filter(g => g.students.length > 0);
 
-  return { isGrid: true, round, groups };
+  return { isGrid: true, round, groups, grade, subject };
 }
 
 /* ------------------------------------------------------------
@@ -899,10 +928,38 @@ function parseGridPage(tokenLines){
    자료이므로 roundsMap/classesMap에는 들어가지 않고, 별도의
    nameByKey 맵을 채우는 데만 쓰인다.
    ------------------------------------------------------------ */
+// "2026학년도 1학기 주간 2학년"처럼 "OO학년도"와 별개로 등장하는 "N학년"에서 학년을 추출
+function extractGradeLevel(lines){
+  for (const line of lines) {
+    const m = line.match(/(\d+)\s*학년(?!도)/);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+// "교과목 : 과학:물리학(3)" 또는 "교과 : 물리학 2학년 2-1" 형식에서 과목명만 추출
+function extractSubject(lines){
+  for (const line of lines) {
+    let m = line.match(/교과목\s*:\s*(?:[^:()\n]*:)?\s*([^\(]+?)\s*\(/);
+    if (m) return m[1].trim();
+    m = line.match(/교과\s*:\s*([^\d\n]+?)\s+\d/);
+    if (m) return m[1].trim();
+  }
+  return null;
+}
+
+// 학번 = 학년(1자리) + 반(2자리) + 번호(2자리). 학년을 인식하지 못했으면 '0'을 사용.
+function toStudentId(hr, sn){
+  const g = recognizedGrade || '0';
+  const hrPad = String(hr).padStart(2, '0');
+  const snPad = String(sn).padStart(2, '0');
+  return String(g) + hrPad + snPad;
+}
+
 function parseAttendanceRoster(tokenLines){
   const joined = tokenLines.map(tl => joinTokens(tl.items));
   const flatText = joined.join('').replace(/\s+/g, '');
-  if (!flatText.includes('교과시간별출석부') && !flatText.includes('교과시간별출석부')) return null;
+  if (!flatText.includes('교과시간별출석부') && !flatText.includes('교과시간출석부')) return null;
 
   let headerIdx = -1;
   for (let i = 0; i < joined.length; i++) {
@@ -911,7 +968,10 @@ function parseAttendanceRoster(tokenLines){
   }
   if (headerIdx === -1) return null;
 
+  const subject = extractSubject(joined);
+
   const students = []; // {hr, sn, name}
+  let grade = null;
   for (let i = headerIdx + 1; i < joined.length; i++) {
     const line = joined[i].trim();
     if (!line) continue;
@@ -921,6 +981,7 @@ function parseAttendanceRoster(tokenLines){
 
     const m = line.match(/^(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s*(.*)$/);
     if (!m) continue; // 연번 학년 학과 반 번호 [이름] 형태가 아니면 건너뜀
+    const gradeVal = m[2];
     const hr = m[4], sn = m[5];
     let name = m[6].trim().replace(/\(공동\)\s*$/, '').trim();
 
@@ -931,9 +992,12 @@ function parseAttendanceRoster(tokenLines){
       const looksLikeNoise = /^\(.*\)$/.test(next) || /^담당교사/.test(next) || /^\[.*\]/.test(next) || next === '';
       if (!looksLikeRow && !looksLikeNoise) name = next;
     }
-    if (hr && sn && name) students.push({ hr, sn, name });
+    if (hr && sn && name) {
+      students.push({ hr, sn, name });
+      if (!grade) grade = gradeVal;
+    }
   }
-  return students.length ? { students } : null;
+  return students.length ? { students, grade, subject } : null;
 }
 
 /* ============================================================
@@ -957,6 +1021,8 @@ async function runAnalysis(){
   const detectionLog = [];
   let unresolvedRoundCount = 0;
   nameByKey = new Map(); // 매 분석마다 새로 인식 (이전 업로드의 잔여 데이터가 남지 않도록)
+  recognizedGrade = null;
+  recognizedSubject = null;
   let newNameCount = 0;
 
   function roundBucket(round){
@@ -1030,6 +1096,8 @@ async function runAnalysis(){
             }
             const hrList = Array.from(byHr.keys()).sort((a,b) => (parseInt(a,10)||0)-(parseInt(b,10)||0));
             detectionLog.push(`${item.file.name} p${p}: 학생답 정오표 형식 · ${round}차 · ${pageLabel}강의실(반 ${hrList.join(', ')}) · ${listParsed.students.length}명`);
+            if (!recognizedGrade && listParsed.grade) recognizedGrade = listParsed.grade;
+            if (!recognizedSubject && listParsed.subject) recognizedSubject = listParsed.subject;
             continue;
           }
 
@@ -1046,6 +1114,8 @@ async function runAnalysis(){
               if (dup > 0) dupSources.set(key, (dupSources.get(key) || 0) + dup);
             }
             detectionLog.push(`${item.file.name} p${p}: 일람표(성적 요약) 형식 · ${round}차 · ${gridParsed.groups.length}개 반 · 총 ${gridParsed.groups.reduce((a,g)=>a+g.students.length,0)}명`);
+            if (!recognizedGrade && gridParsed.grade) recognizedGrade = gridParsed.grade;
+            if (!recognizedSubject && gridParsed.subject) recognizedSubject = gridParsed.subject;
             continue;
           }
 
@@ -1054,6 +1124,8 @@ async function runAnalysis(){
             roster.students.forEach(s => nameByKey.set(`${s.hr}-${s.sn}`, s.name));
             newNameCount += roster.students.length;
             detectionLog.push(`${item.file.name} p${p}: 교과시간별출석부 · ${roster.students.length}명 이름 인식`);
+            if (!recognizedGrade && roster.grade) recognizedGrade = roster.grade;
+            if (!recognizedSubject && roster.subject) recognizedSubject = roster.subject;
             continue;
           }
         }
@@ -1351,7 +1423,7 @@ function renderRawTable(sortMode){
   const rawTable = document.getElementById('rawTable');
   if (!rawTable) return;
   const rounds = rawStudentRounds;
-  const list = rawStudentList.slice();
+  let list = rawStudentList.slice();
 
   if (sortMode === 'id') {
     list.sort((a,b) => {
@@ -1367,13 +1439,27 @@ function renderRawTable(sortMode){
     list.sort((a,b) => b.total - a.total);
   }
 
-  let thead = '<thead><tr><th>순위</th><th>반</th><th>번호</th><th class="name-cell">이름</th>';
+  const query = (currentRawSearchQuery || '').trim().toLowerCase();
+  if (query) {
+    list = list.filter(rec => matchesStudentSearch(rec, query));
+  }
+
+  const statusEl = document.getElementById('searchStatus');
+  if (query && list.length === 0) {
+    rawTable.innerHTML = '';
+    statusEl.textContent = `'${currentRawSearchQuery}'에 해당하는 학생을 찾을 수 없습니다.`;
+    return;
+  }
+  statusEl.textContent = query ? `검색 결과: ${list.length}명` : '';
+
+  let thead = '<thead><tr><th>순위</th><th>학번</th><th>반</th><th>번호</th><th class="name-cell">이름</th>';
   for (const r of rounds) thead += `<th>${roundLabel(r)}</th>`;
   thead += '<th>총점</th></tr></thead>';
 
   const rows = list.map(rec => {
     let row = `<tr>
       <td class="num">${rec.rank}</td>
+      <td class="num">${toStudentId(rec.hr, rec.sn)}</td>
       <td>${escapeHtml(rec.hr)}</td>
       <td class="num">${escapeHtml(rec.sn)}</td>
       <td class="name-cell">${rec.name ? escapeHtml(rec.name) : '<span style="color:var(--ink-soft)">-</span>'}</td>`;
@@ -1387,6 +1473,39 @@ function renderRawTable(sortMode){
 
   rawTable.innerHTML = thead + `<tbody>${rows}</tbody>`;
 }
+
+// 학번(학년+반+번호) 또는 이름으로 학생 검색
+function matchesStudentSearch(rec, query){
+  if (!query) return true;
+  const combo = (rec.hr + '-' + rec.sn).toLowerCase();
+  const combo2 = (rec.hr + '반' + rec.sn + '번').toLowerCase();
+  const studentId = toStudentId(rec.hr, rec.sn).toLowerCase();
+  if (studentId === query || studentId.includes(query)) return true;
+  if (combo.includes(query) || combo2.includes(query)) return true;
+  if (String(rec.hr).toLowerCase() === query) return true;
+  if (String(rec.sn).toLowerCase() === query) return true;
+  if ((rec.name || '').toLowerCase().includes(query)) return true;
+  return false;
+}
+
+document.getElementById('searchBtn').addEventListener('click', () => {
+  currentRawSearchQuery = document.getElementById('studentSearchInput').value.trim();
+  const detailsEl = document.querySelector('details.raw');
+  if (detailsEl) detailsEl.open = true;
+  renderRawTable(currentRawSort);
+});
+document.getElementById('showAllBtn').addEventListener('click', () => {
+  currentRawSearchQuery = '';
+  document.getElementById('studentSearchInput').value = '';
+  document.getElementById('searchStatus').textContent = '';
+  renderRawTable(currentRawSort);
+});
+document.getElementById('studentSearchInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('searchBtn').click();
+  }
+});
 
 document.getElementById('rawSortTotalBtn').addEventListener('click', () => {
   currentRawSort = 'total';
@@ -1567,6 +1686,14 @@ function renderResults(roundsMap, enrolledVal){
   const enrolledDisplay = enrolledVal != null ? enrolledVal : (perRound.get(rounds[0])?.taken ?? '-');
   document.getElementById('statEnrolled').textContent = enrolledDisplay;
 
+  const subjectLabel = document.getElementById('subjectLabel');
+  if (recognizedSubject) {
+    subjectLabel.textContent = `교과목 : ${recognizedSubject}` + (recognizedGrade ? ` (${recognizedGrade}학년)` : '');
+    subjectLabel.style.display = 'block';
+  } else {
+    subjectLabel.style.display = 'none';
+  }
+
   const basicTable = document.getElementById('basicRoundTable');
   basicTable.innerHTML = `
     <thead><tr><th class="name-cell">구분</th><th>최고점</th><th>최저점</th><th>평균</th></tr></thead>
@@ -1700,6 +1827,9 @@ function renderResults(roundsMap, enrolledVal){
 
   rawStudentList = rawList;
   rawStudentRounds = rounds;
+  currentRawSearchQuery = '';
+  document.getElementById('studentSearchInput').value = '';
+  document.getElementById('searchStatus').textContent = '';
   renderRawTable(currentRawSort);
   document.getElementById('rawSummary').textContent = `전체 학생 명단 보기 (${rawList.length}명)`;
 
@@ -1728,10 +1858,10 @@ document.getElementById('printBtn').addEventListener('click', () => window.print
 document.getElementById('csvBtn').addEventListener('click', () => {
   const data = window.__examStatsData;
   if (!data) return;
-  const header = ['반','번호','이름', ...data.roundsAsc.map(r => roundLabel(r)), '총점'];
+  const header = ['학번','반','번호','이름', ...data.roundsAsc.map(r => roundLabel(r)), '총점'];
   const rows = [header];
   data.list.forEach(rec => {
-    const row = [rec.hr, rec.sn, rec.name || ''];
+    const row = [toStudentId(rec.hr, rec.sn), rec.hr, rec.sn, rec.name || ''];
     for (const r of data.roundsAsc) row.push(rec.scores[r] != null ? rec.scores[r].toFixed(2) : '');
     row.push(rec.total.toFixed(2));
     rows.push(row);
