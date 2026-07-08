@@ -228,11 +228,29 @@
       font-size: 13px;
       text-align: center;
     }
+
+    .setup-warning {
+      display: none;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #fff8e6;
+      color: #8a5b00;
+      border: 1px solid #f2d98b;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .setup-warning.show {
+      display: block;
+    }
   </style>
 </head>
 <body>
   <main class="page">
     <span class="badge">배드민턴 모임</span>
+    <div id="setupWarning" class="setup-warning" role="status"></div>
 
     <article class="card">
       <header class="card-header">
@@ -291,12 +309,13 @@
 
   <script>
     // Google Apps Script Web App 배포 URL을 아래에 붙여 넣으세요.
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzxdg0Zt_Ze9RGX-xIGMgs2FjMRorqYTn2N2QW7-Er2khaMtI6eJz36VeplaHP-lDX5/exec';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_j4ObwIbTB48Z0qkzwhHcDJZtnMLj20OhnIKUrAsQVW71kzPcQY8bVM3i7ypzeTVu/exec';
 
     const form = document.getElementById('rsvpForm');
     const nameInput = document.getElementById('name');
     const submitBtn = document.getElementById('submitBtn');
     const messageEl = document.getElementById('message');
+    const setupWarningEl = document.getElementById('setupWarning');
 
     function showMessage(text, type) {
       messageEl.textContent = text;
@@ -308,13 +327,28 @@
       messageEl.className = 'message';
     }
 
-    function submitViaJsonp(name) {
+    function showSetupWarning(text) {
+      setupWarningEl.textContent = text;
+      setupWarningEl.className = 'setup-warning show';
+    }
+
+    function hideSetupWarning() {
+      setupWarningEl.textContent = '';
+      setupWarningEl.className = 'setup-warning';
+    }
+
+    function createCallbackName() {
+      return 'rsvpCb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    }
+
+    function callJsonp(params) {
       return new Promise(function (resolve, reject) {
-        var callbackName = 'rsvpCallback_' + Date.now();
+        var callbackName = createCallbackName();
         var timeoutId = setTimeout(function () {
           cleanup();
           reject(new Error('timeout'));
         }, 15000);
+        var script = document.createElement('script');
 
         function cleanup() {
           clearTimeout(timeoutId);
@@ -329,16 +363,33 @@
           resolve(result);
         };
 
-        var script = document.createElement('script');
-        script.src = APPS_SCRIPT_URL
-          + '?name=' + encodeURIComponent(name)
-          + '&callback=' + encodeURIComponent(callbackName);
+        var query = new URLSearchParams(params);
+        query.set('callback', callbackName);
+        script.src = APPS_SCRIPT_URL + '?' + query.toString();
         script.onerror = function () {
           cleanup();
           reject(new Error('script error'));
         };
         document.body.appendChild(script);
       });
+    }
+
+    async function checkApiReady() {
+      if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+        showSetupWarning('Apps Script URL이 설정되지 않았습니다. index.html 상단의 APPS_SCRIPT_URL을 입력해 주세요.');
+        return;
+      }
+
+      try {
+        const result = await callJsonp({ action: 'ping' });
+        if (result && result.ok) {
+          hideSetupWarning();
+          return;
+        }
+        showSetupWarning('Apps Script 연결은 되었지만 응답 형식이 맞지 않습니다. Code.gs를 새로 배포해 주세요.');
+      } catch (error) {
+        showSetupWarning('Apps Script API가 준비되지 않았습니다. Code.gs를 붙여넣고 새 배포한 뒤 APPS_SCRIPT_URL을 확인해 주세요.');
+      }
     }
 
     form.addEventListener('submit', async function (event) {
@@ -362,21 +413,24 @@
       submitBtn.textContent = '제출 중...';
 
       try {
-        const result = await submitViaJsonp(name);
+        const result = await callJsonp({ name: name });
 
         if (result.ok) {
           showMessage(result.message || '참석 신청이 완료되었습니다.', 'success');
           form.reset();
+          hideSetupWarning();
         } else {
           showMessage(result.message || '이미 신청하셨습니다.', 'error');
         }
       } catch (error) {
-        showMessage('전송에 실패했습니다. 잠시 후 다시 시도해 주세요.', 'error');
+        showMessage('전송에 실패했습니다. Apps Script에 Code.gs를 붙여넣고 새 배포했는지 확인해 주세요.', 'error');
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = '제출';
       }
     });
+
+    checkApiReady();
   </script>
 </body>
 </html>
