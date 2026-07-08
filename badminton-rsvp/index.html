@@ -309,7 +309,7 @@
 
   <script>
     // Google Apps Script Web App 배포 URL을 아래에 붙여 넣으세요.
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_j4ObwIbTB48Z0qkzwhHcDJZtnMLj20OhnIKUrAsQVW71kzPcQY8bVM3i7ypzeTVu/exec';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_cfBOqLq462C1hQS2sR92Xa8WWtwNzrGxvMcsWpzAZJtRlCRII8uk7N4zSDyVZdZ3/exec';
 
     const form = document.getElementById('rsvpForm');
     const nameInput = document.getElementById('name');
@@ -417,7 +417,7 @@
 
         if (result.ok) {
           showMessage(result.message || '참석 신청이 완료되었습니다.', 'success');
-          form.reset();
+          form.reset();https://script.google.com/macros/s/AKfycbx_cfBOqLq462C1hQS2sR92Xa8WWtwNzrGxvMcsWpzAZJtRlCRII8uk7N4zSDyVZdZ3/exec
           hideSetupWarning();
         } else {
           showMessage(result.message || '이미 신청하셨습니다.', 'error');
