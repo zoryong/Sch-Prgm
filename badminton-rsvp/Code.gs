@@ -4,10 +4,25 @@
  * 스프레드시트 1행 헤더: 제출시간 | 성명
  */
 
-function doPost(e) {
-  try {
-    var name = (e.parameter.name || '').trim();
+function doGet(e) {
+  var name = (e && e.parameter && e.parameter.name || '').trim();
 
+  if (!name) {
+    return ContentService
+      .createTextOutput('배드민턴 모임 참석 신청 API')
+      .setMimeType(ContentService.MimeType.TEXT);
+  }
+
+  return submitRsvp(name);
+}
+
+function doPost(e) {
+  var name = (e.parameter.name || '').trim();
+  return submitRsvp(name);
+}
+
+function submitRsvp(name) {
+  try {
     if (!name) {
       return jsonResponse({
         ok: false,
@@ -40,12 +55,6 @@ function doPost(e) {
       message: '오류가 발생했습니다. 다시 시도해 주세요.'
     });
   }
-}
-
-function doGet() {
-  return ContentService
-    .createTextOutput('배드민턴 모임 참석 신청 API')
-    .setMimeType(ContentService.MimeType.TEXT);
 }
 
 function getOrCreateSheet() {

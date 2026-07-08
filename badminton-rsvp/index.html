@@ -284,7 +284,7 @@
           <div id="message" class="message" role="alert" aria-live="polite"></div>
         </form>
       </section>
-    </article>https://script.google.com/macros/s/AKfycbzxdg0Zt_Ze9RGX-xIGMgs2FjMRorqYTn2N2QW7-Er2khaMtI6eJz36VeplaHP-lDX5/exec
+    </article>
 
     <p class="footer-note">문의 사항이 있으시면 모임 관리자에게 연락해 주세요.</p>
   </main>
@@ -329,14 +329,8 @@
       submitBtn.textContent = '제출 중...';
 
       try {
-        const response = await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-          },
-          body: new URLSearchParams({ name: name })
-        });
-
+        const url = APPS_SCRIPT_URL + '?name=' + encodeURIComponent(name);
+        const response = await fetch(url);
         const result = await response.json();
 
         if (result.ok) {
