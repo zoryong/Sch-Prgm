@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>학생답 정오표 개인별 이메일 발송 프로그램</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#1B2430; --ink-soft:#57616F; --paper:#F6F7F9; --card:#FFFFFF; --line:#E2E6EB;
+    --navy:#213863; --navy-deep:#152540; --teal:#0F8A82; --teal-soft:#E3F4F1;
+    --amber:#C8791C; --amber-soft:#FBF0DF; --rose:#B8465A; --rose-soft:#FBEAEC;
+    --violet:#6E56A6; --violet-soft:#EEEAF7; --radius:14px;
+    --mono:'JetBrains Mono','Noto Sans KR',monospace;
+    --sans:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--ink);line-height:1.55;word-break:keep-all;overflow-wrap:break-word;}
+  .wrap{max-width:980px;margin:0 auto;padding:44px 28px 96px;}
+  header.page-head{background:linear-gradient(155deg,var(--navy-deep) 0%,var(--navy) 62%,#2B4C7E 100%);color:#fff;padding:38px 28px 46px;}
+  header.page-head .eyebrow{font-size:12.5px;letter-spacing:.14em;color:#9FB3D6;text-transform:uppercase;font-weight:600;margin-bottom:10px;text-decoration:none;display:inline-block;transition:color .15s;}
+  header.page-head .eyebrow:hover{color:#fff;text-decoration:underline;}
+  header.page-head h1{font-size:clamp(22px,4vw,30px);font-weight:900;margin:0 0 10px;letter-spacing:-.01em;color:#fff;}
+  header.page-head p{color:#C7D4E8;font-size:14.5px;margin:0;}
+
+  .program-download-row{display:flex;justify-content:flex-end;margin-bottom:12px;}
+
+  .guide-panel{border:1px solid var(--line);border-radius:14px;background:var(--card);margin-bottom:40px;overflow:hidden;box-shadow:0 1px 3px rgba(20,30,50,.04);}
+  .guide-toggle{width:100%;display:flex;align-items:center;gap:12px;padding:16px 22px;cursor:pointer;background:none;border:none;font-family:var(--sans);text-align:left;}
+  .guide-toggle .gt-icon{font-size:15px;width:32px;height:32px;border-radius:50%;background:var(--teal-soft);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .guide-toggle .gt-title{font-size:15px;font-weight:800;color:var(--ink);flex:1;}
+  .guide-toggle .gt-hint{font-size:12.5px;color:var(--ink-soft);}
+  .guide-toggle .gt-arrow{font-size:11px;color:var(--ink-soft);transition:.2s transform;flex:0 0 auto;}
+  .guide-panel.open .gt-arrow{transform:rotate(180deg);}
+  .guide-body{display:none;padding:0 22px 22px;border-top:1px solid var(--line);}
+  .guide-panel.open .guide-body{display:block;}
+  .guide-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:18px;}
+  .guide-step{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 15px;}
+  .guide-step .gs-num{font-family:var(--mono);font-size:10.5px;font-weight:800;color:var(--teal);letter-spacing:.08em;margin-bottom:6px;}
+  .guide-step .gs-title{font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:7px;}
+  .guide-step .gs-body{font-size:12.5px;color:var(--ink-soft);line-height:1.65;}
+  .guide-tip{margin-top:14px;padding:13px 16px;background:var(--teal-soft);border-radius:10px;font-size:12.5px;color:var(--ink-soft);line-height:1.65;}
+  .guide-tip b{color:var(--teal);}
+  .warn-box{border:1px solid #EBCF9C;background:var(--amber-soft);border-radius:12px;padding:13px 16px;font-size:12.5px;color:#7A5211;margin-top:12px;line-height:1.6;}
+  .err-box{border:1px solid #E6B7C0;background:var(--rose-soft);border-radius:12px;padding:13px 16px;font-size:12.5px;color:#7A2334;margin-top:12px;line-height:1.6;}
+
+  .step{display:grid;grid-template-columns:48px 1fr;gap:0 22px;position:relative;}
+  .step + .step{margin-top:6px;}
+  .step .rail{position:relative;display:flex;flex-direction:column;align-items:center;}
+  .step .num{width:34px;height:34px;border-radius:50%;background:var(--card);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:13px;color:var(--ink-soft);flex:0 0 auto;z-index:1;}
+  .step.active .num{border-color:var(--teal);color:var(--teal);background:var(--teal-soft);}
+  .step .rail .line{flex:1;width:1.5px;background:var(--line);margin-top:4px;}
+  .step:last-child .rail .line{display:none;}
+  .step .body{padding-bottom:40px;}
+  .step h2{font-size:16.5px;margin:5px 0 4px;font-weight:700;}
+  .step .desc{color:var(--ink-soft);font-size:13.5px;margin-bottom:16px;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:0 1px 2px rgba(21,37,64,.04);}
+  .card + .card{margin-top:14px;}
+
+  .drop{border:1.5px dashed #B9C4D4;border-radius:12px;padding:22px;text-align:center;cursor:pointer;transition:.15s border-color, .15s background;background:#FAFBFC;}
+  .drop:hover, .drop.drag{border-color:var(--teal);background:var(--teal-soft);}
+  .drop.disabled{cursor:not-allowed;opacity:.55;}
+  .drop input{display:none;}
+  .drop .icon{font-size:22px;margin-bottom:6px;}
+  .drop .t1{font-size:14px;font-weight:600;}
+  .drop .t2{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+
+  .file-list{margin-top:14px;display:flex;flex-direction:column;gap:8px;}
+  .file-row{display:flex;align-items:center;gap:12px;background:#FAFBFC;border:1px solid var(--line);border-radius:10px;padding:10px 14px;border-left:3px solid var(--line);}
+  .file-row.status-ok{border-left-color:var(--teal);}
+  .file-row.status-error{border-left-color:var(--rose);}
+  .file-row .fr-icon{font-size:16px;flex:0 0 auto;}
+  .file-row .fr-meta{flex:1;min-width:0;}
+  .file-row .fr-name{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .file-row .fr-sub{font-size:11.5px;color:var(--ink-soft);font-family:var(--mono);margin-top:1px;}
+  .fr-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;flex:0 0 auto;white-space:nowrap;}
+  .fr-badge.ok{color:var(--teal);background:var(--teal-soft);}
+  .fr-badge.error{color:var(--rose);background:var(--rose-soft);}
+  .file-row button.remove{border:none;background:none;color:var(--ink-soft);cursor:pointer;font-size:15px;padding:5px 9px;border-radius:8px;flex:0 0 auto;}
+  .file-row button.remove:hover{background:#fff;color:var(--rose);}
+
+  .note-box{margin-top:10px;font-size:12.5px;color:var(--ink-soft);line-height:1.65;background:#FAFBFC;border:1px dashed #C7CEDA;border-radius:9px;padding:12px 14px;}
+  .note-box b{color:var(--ink);}
+  .field{margin-top:14px;}
+  .field label{display:block;font-size:11.5px;color:var(--ink-soft);font-weight:700;letter-spacing:.03em;margin-bottom:6px;text-transform:uppercase;}
+  .field input[type=text], .field textarea{width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);font-family:var(--mono);font-size:13px;color:var(--ink);}
+  .field textarea{line-height:1.6;resize:vertical;}
+  .field input[type=text]:focus, .field textarea:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+
+  .chip-row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px;}
+  .chip{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--navy);background:var(--teal-soft);border:1px solid #BFE3DF;border-radius:999px;padding:4px 10px;cursor:pointer;transition:.12s background;}
+  .chip:hover{background:#CDEEE8;}
+  .chip.special{color:#fff;background:var(--violet);border-color:var(--violet);}
+  .chip.special:hover{background:#5D4790;}
+
+  button.primary{background:var(--navy);color:#fff;border:none;border-radius:10px;padding:13px 22px;font-size:14.5px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:.15s transform, .15s background;}
+  button.primary:hover:not(:disabled){background:var(--navy-deep);}
+  button.primary:active:not(:disabled){transform:scale(.98);}
+  button.primary:disabled{background:#C7CCD6;cursor:not-allowed;}
+  button.ghost{background:#fff;color:var(--navy);border:1.5px solid #C7CEDA;border-radius:10px;padding:12px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:.15s background;}
+  button.ghost:hover:not(:disabled){background:#F1F4F8;}
+  button.ghost:disabled{opacity:.5;cursor:not-allowed;}
+
+  .action-row{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap;}
+  .hint{font-size:12.5px;color:var(--ink-soft);}
+
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0;}
+  .stat{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .stat .v{font-family:var(--mono);font-size:19px;font-weight:800;}
+  .stat .l{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+
+  .table-scroll{margin-top:16px;border:1px solid var(--line);border-radius:12px;max-height:380px;overflow:auto;background:var(--card);}
+  table.preview{border-collapse:collapse;width:100%;font-size:11px;}
+  table.preview thead th{position:sticky;top:0;background:#F2F4F7;border-bottom:1px solid var(--line);text-align:left;padding:6px 7px;font-size:10px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.02em;white-space:nowrap;z-index:1;}
+  table.preview tbody td{padding:5px 7px;border-bottom:1px solid var(--line);white-space:nowrap;font-family:var(--mono);}
+  table.preview tbody td.name-cell{font-family:var(--sans);}
+  table.preview th.q-col, table.preview td.q-col{padding-left:4px;padding-right:4px;text-align:center;width:22px;}
+  table.preview td.email-cell{font-size:9.5px;color:var(--ink-soft);}
+
+  .preview-box{background:#FAFBFC;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:10px;}
+  .preview-box .p-subject{font-weight:800;font-size:13.5px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--line);}
+  .preview-box .p-body{font-size:13px;line-height:1.7;}
+  .preview-box table.answer-table{border-collapse:collapse;margin:10px 0;font-size:11.5px;}
+  .preview-box table.answer-table th, .preview-box table.answer-table td{border:1px solid var(--line);padding:4px 7px;text-align:center;font-family:var(--mono);}
+  .preview-box table.answer-table th{background:#F2F4F7;color:var(--ink-soft);}
+
+  footer.copyright{margin-top:18px;font-size:11.5px;color:#9AA2B1;text-align:center;}
+  footer.copyright .copyright-link{color:#9AA2B1;text-decoration:underline;text-underline-offset:2px;}
+  footer.copyright .copyright-link:hover{color:var(--teal);}
+
+  ::-webkit-scrollbar{height:10px;width:10px;}
+  ::-webkit-scrollbar-thumb{background:#D7DCE4;border-radius:6px;}
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <a class="eyebrow" href="https://zoryong.github.io/Sch-Prgm">슬기로운 학교생활</a>
+  <h1>학생답 정오표 개인별 이메일 발송 프로그램</h1>
+  <p>NEIS '정기시험 교과목별 학생답 정오표' PDF를 올리면, 학생별 문항 정오표가 담긴 개인 맞춤 이메일을 구글 시트 + Apps Script로 발송할 수 있도록 준비해 드립니다. 모든 처리는 이 브라우저 안에서만 이루어지며, 파일이 외부로 전송되지 않습니다.</p>
+</header>
+
+<div class="wrap">
+
+  <div class="program-download-row">
+    <button class="ghost" id="downloadProgramBtn" type="button">⬇️ 이 프로그램 다운받기</button>
+  </div>
+
+  <div class="guide-panel" id="guidePanel">
+    <button class="guide-toggle" id="guideToggle" type="button">
+      <span class="gt-icon">📖</span>
+      <span class="gt-title">사용 방법</span>
+      <span class="gt-hint">처음 사용하신다면 클릭해서 확인하세요</span>
+      <span class="gt-arrow">▼</span>
+    </button>
+    <div class="guide-body">
+      <div class="guide-tip">
+        ⚠️ <b>중요.</b> 브라우저는 보안상 서버 없이 이메일을 직접 전송할 수 없습니다. 그래서 이 프로그램은 <b>구글 시트 + Apps Script</b>를 통한 발송 방식만 지원합니다 — 본인의 Gmail 계정으로 직접 보내므로 완전 무료이고, 하루 발송 한도도 넉넉합니다(약 1500통/일).
+      </div>
+      <div class="guide-steps">
+        <div class="guide-step"><div class="gs-num">STEP 01</div><div class="gs-title">PDF 업로드</div><div class="gs-body">학생답 정오표 PDF를 업로드 한 후, 학생 이메일 형식을 입력하고 [인식하기]를 누르세요.</div></div>
+        <div class="guide-step"><div class="gs-num">STEP 02</div><div class="gs-title">인식 결과 확인</div><div class="gs-body">전체 학생의 데이터가 잘 인식되었는지 표에서 확인하세요.</div></div>
+        <div class="guide-step"><div class="gs-num">STEP 03</div><div class="gs-title">메일 내용 작성</div><div class="gs-body">제목/본문을 작성하세요. <b>{정오표}</b> 자리표시자를 넣으면 문항 번호, 정답, 배점, 학생 응답이 담긴 표가 자동으로 만들어집니다.</div></div>
+        <div class="guide-step"><div class="gs-num">STEP 04</div><div class="gs-title">엑셀 저장 → 구글 시트 → 발송</div><div class="gs-body">엑셀을 저장해 구글 시트에 붙여넣고, 생성된 코드를 Apps Script에 붙여넣어 실행하세요.</div></div>
+      </div>
+      <div class="guide-tip" style="background:var(--amber-soft);color:#7A5211;">
+        <b>정답과 배점 처리 방식.</b> 정답과 배점은 반마다 다르지 않고 시험 전체에서 하나로 고정되므로, 엑셀에는 학생별 응답만 저장하고 정답과 배점 정보는 [코드 생성하기]를 누를 때 자동으로 스크립트 안에 함께 담깁니다. 즉, 3단계에서 인식한 시험의 정답과 배점이 그대로 메일 발송에 사용됩니다.
+      </div>
+      <div class="guide-tip" style="background:var(--amber-soft);color:#7A5211;">
+        <b>실행이 오래 걸리는 것처럼 보일 때.</b> 인원이 많으면(100명 이상) 이메일 발송 자체에 시간이 걸려서 몇 분씩 소요될 수 있습니다 Apps Script는 한 번 실행에 시간 제한이 있어서, 시간이 오래 걸리면 안전하게 중단되고 안내 문구가 뜹니다 — 이미 보낸 학생은 "발송완료"로 저장되어 있으므로, 스크립트를 다시 실행하면 나머지 학생부터 자동으로 이어서 발송됩니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="step active" id="step1">
+    <div class="rail"><div class="num">01</div><div class="line"></div></div>
+    <div class="body">
+      <h2>PDF 업로드</h2>
+      <div class="desc">'정기시험 교과목별 학생답 정오표' PDF를 올려주세요. 여러 개 가능합니다.</div>
+      <div class="card">
+        <div id="dropZone" class="drop">
+          <input type="file" id="fileInput" accept=".pdf" multiple>
+          <div class="icon">📄</div>
+          <div class="t1">클릭해서 PDF 선택 또는 끌어다 놓기</div>
+          <div class="t2">PDF · 여러 개 동시 선택 가능</div>
+        </div>
+        <div class="file-list" id="fileList"></div>
+        <div class="field">
+          <label for="emailFormatInput">학생 이메일 형식 (예시) 26s{학번}@yihongcheon-h.goeyi.kr</label>
+          <input type="text" id="emailFormatInput" placeholder="26s{학번}@yihongcheon-h.goeyi.kr">
+          <div class="hint">학번이 들어갈 자리에 <b>{학번}</b>을 넣어주세요. 비워두면 위 예시 형식을 그대로 사용합니다.</div>
+        </div>
+        <div class="action-row">
+          <button class="primary" id="recognizeBtn" type="button" disabled>인식하기</button>
+          <button class="ghost" id="resetBtn" type="button">초기화</button>
+          <span class="hint" id="recognizeHint"></span>
+        </div>
+        <div id="fileErr" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step" id="step2">
+    <div class="rail"><div class="num">02</div><div class="line"></div></div>
+    <div class="body">
+      <h2>인식 결과 확인</h2>
+      <div class="desc">전체 학생의 데이터를 확인하세요.</div>
+      <div class="card">
+        <div class="stats" id="resultStats" style="display:none;"></div>
+        <div id="resultWarn"></div>
+        <div class="table-scroll" id="previewWrap" style="display:none;"><table class="preview" id="previewTable"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step" id="step3">
+    <div class="rail"><div class="num">03</div><div class="line"></div></div>
+    <div class="body">
+      <h2>메일 내용 작성</h2>
+      <div class="desc">항목 칩을 눌러 원하는 자리에 끼워 넣으세요. 보라색 <b>{정오표}</b>, <b>{정오표 설명}</b> 칩은 자동으로 만들어집니다.</div>
+      <div class="card">
+        <div class="field">
+          <label>사용 가능한 항목</label>
+          <div class="chip-row" id="chipRow"></div>
+        </div>
+        <div class="field">
+          <label>메일 제목</label>
+          <input type="text" id="subjectInput" value="{학년도}학년도 {학기}학기 {차수}차 정기시험 {과목} 정오표 안내">
+        </div>
+        <div class="field">
+          <label>메일 본문</label>
+          <textarea id="bodyInput" rows="10">{이름} 학생에게,
+
+{학기}학기 {차수}차 정기시험 {과목} 정오표 안내합니다.
+
+{정오표}
+
+{정오표 설명}
+
+수고 많았습니다.</textarea>
+        </div>
+        <div class="field-row" style="display:flex;gap:14px;margin-top:14px;">
+          <div class="field" style="flex:1;margin-top:0;">
+            <label>미리보기 학생</label>
+            <select id="previewSelect" style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line);font-family:var(--sans);font-size:13.5px;"></select>
+          </div>
+        </div>
+        <div class="preview-box" id="previewBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step" id="step4">
+    <div class="rail"><div class="num">04</div></div>
+    <div class="body">
+      <h2>구글 시트로 발송</h2>
+      <div class="desc">엑셀을 저장해 구글 시트에 붙여넣고, 생성된 코드로 발송하세요.</div>
+      <div class="card">
+        <div class="guide-steps">
+          <div class="guide-step"><div class="gs-num">STEP 1</div><div class="gs-title">엑셀 저장</div><div class="gs-body">아래 [엑셀로 저장]을 눌러 파일을 받으세요.</div></div>
+          <div class="guide-step"><div class="gs-num">STEP 2</div><div class="gs-title">구글 시트에 붙여넣기</div><div class="gs-body">새 구글 시트를 열고 엑셀 내용을 1행(헤더 포함) 그대로 붙여넣으세요.</div></div>
+          <div class="guide-step"><div class="gs-num">STEP 3</div><div class="gs-title">Apps Script</div><div class="gs-body">확장 프로그램 → Apps Script에서 기존 코드를 지우고 [코드 생성하기]로 만든 코드를 붙여넣으세요.</div></div>
+          <div class="guide-step"><div class="gs-num">STEP 4</div><div class="gs-title">실행</div><div class="gs-body">실행(▶) 버튼을 누르고 권한을 승인하면 발송됩니다. "발송상태" 열에 결과가 기록됩니다.</div></div>
+        </div>
+        <div class="action-row">
+          <button class="primary" id="downloadXlsxBtn" type="button" disabled>엑셀로 저장</button>
+          <button class="ghost" id="gasGenBtn" type="button" disabled>코드 생성 및 복사하기</button>
+          <span class="hint" id="gasHint">먼저 PDF를 인식해주세요.</span>
+        </div>
+        <textarea id="gasCodeBox" rows="14" readonly style="width:100%;margin-top:10px;font-size:11.5px;font-family:var(--mono);border:1px solid var(--line);border-radius:9px;padding:10px 12px;" placeholder="위 버튼을 누르면 여기에 코드가 생성됩니다."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <footer class="copyright">Copyright © 2026 <a href="mailto:physicsgon@gmail.com" class="copyright-link">physicsgon@gmail.com</a> . All rights reserved.</footer>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+(function(){
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const fileListEl = document.getElementById('fileList');
+  const recognizeBtn = document.getElementById('recognizeBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const recognizeHint = document.getElementById('recognizeHint');
+  const fileErr = document.getElementById('fileErr');
+  const emailFormatInput = document.getElementById('emailFormatInput');
+
+  const resultStats = document.getElementById('resultStats');
+  const resultWarn = document.getElementById('resultWarn');
+  const previewWrap = document.getElementById('previewWrap');
+  const previewTable = document.getElementById('previewTable');
+
+  const chipRow = document.getElementById('chipRow');
+  const subjectInput = document.getElementById('subjectInput');
+  const bodyInput = document.getElementById('bodyInput');
+  const previewSelect = document.getElementById('previewSelect');
+  const previewBox = document.getElementById('previewBox');
+
+  const downloadXlsxBtn = document.getElementById('downloadXlsxBtn');
+  const gasGenBtn = document.getElementById('gasGenBtn');
+  const gasHint = document.getElementById('gasHint');
+  const gasCodeBox = document.getElementById('gasCodeBox');
+
+  let fileEntries = [];
+  let fileKeys = new Set();
+  let isProcessing = false;
+  let students = []; // {subject, semester, round, hakbun, grade, ban, beon, name, email, answers:[]}
+  let maxN = 0;
+  let recognizedSubject = null, recognizedSemester = null, recognizedRound = null, recognizedYear = null;
+  let recognizedLegend = null;
+  let recognizedAnswerKey = [], recognizedPoints = [];
+
+  function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function humanSize(bytes){
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1024/1024).toFixed(2) + ' MB';
+  }
+  function fileKey(f){ return f.name + '_' + f.size + '_' + f.lastModified; }
+  function toStudentId(grade, ban, beon){
+    const g = grade || '0';
+    return String(g) + String(ban).padStart(2,'0') + String(beon).padStart(2,'0');
+  }
+
+  /* ---------------- 파일 업로드 ---------------- */
+  dropZone.addEventListener('click', () => { if (!isProcessing) fileInput.click(); });
+  ['dragover'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); if (!isProcessing) dropZone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('drag'); }));
+  dropZone.addEventListener('drop', e => { if (isProcessing) return; addFiles(Array.from(e.dataTransfer.files).filter(f => /\.pdf$/i.test(f.name))); });
+  fileInput.addEventListener('change', () => { addFiles(Array.from(fileInput.files)); fileInput.value=''; });
+
+  function addFiles(newFiles){
+    if (isProcessing) return;
+    for (const f of newFiles) {
+      const key = fileKey(f);
+      if (fileKeys.has(key)) continue;
+      fileKeys.add(key);
+      fileEntries.push({ file: f, key, status: 'pending' });
+    }
+    renderFileList();
+    recognizeBtn.disabled = fileEntries.length === 0;
+  }
+
+  function renderFileList(){
+    if (!fileEntries.length) { fileListEl.innerHTML = ''; return; }
+    fileListEl.innerHTML = fileEntries.map(e => {
+      const badge = e.status === 'ok' ? '<span class="fr-badge ok">인식 완료</span>'
+        : e.status === 'error' ? '<span class="fr-badge error">인식 실패</span>' : '';
+      return `<div class="file-row status-${e.status}">
+        <div class="fr-icon">📄</div>
+        <div class="fr-meta"><div class="fr-name">${escapeHtml(e.file.name)}</div><div class="fr-sub">${humanSize(e.file.size)}</div></div>
+        ${badge}
+        <button class="remove" type="button" data-key="${escapeHtml(e.key)}" ${isProcessing?'disabled':''}>✕</button>
+      </div>`;
+    }).join('');
+    fileListEl.querySelectorAll('button.remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        fileEntries = fileEntries.filter(e => e.key !== btn.dataset.key);
+        fileKeys.delete(btn.dataset.key);
+        renderFileList();
+        recognizeBtn.disabled = fileEntries.length === 0;
+      });
+    });
+  }
+
+  resetBtn.addEventListener('click', () => {
+    if (isProcessing) return;
+    fileEntries = []; fileKeys = new Set(); students = []; maxN = 0;
+    recognizedSubject = null; recognizedYear = null; recognizedSemester = null; recognizedRound = null;
+    recognizedAnswerKey = []; recognizedPoints = []; recognizedLegend = null;
+    emailFormatInput.value = '';
+    renderFileList();
+    recognizeBtn.disabled = true;
+    fileErr.style.display = 'none';
+    resultStats.style.display = 'none';
+    resultWarn.innerHTML = '';
+    previewWrap.style.display = 'none';
+    downloadXlsxBtn.disabled = true;
+    gasGenBtn.disabled = true;
+    gasHint.textContent = '먼저 PDF를 인식해주세요.';
+    gasCodeBox.value = '';
+    recognizeHint.textContent = '';
+  });
+
+  /* ---------------- PDF 라인 추출 ---------------- */
+  function groupLines(items){
+    const sorted = items.slice().sort((a,b) => b.y - a.y || a.x - b.x);
+    const lines = [];
+    let current = null;
+    for (const it of sorted) {
+      if (!current || Math.abs(current.y - it.y) > 1.0) { current = { y: it.y, items: [] }; lines.push(current); }
+      current.items.push(it);
+    }
+    lines.sort((a,b) => b.y - a.y);
+    for (const l of lines) {
+      l.items = l.items.filter(it => it.str.trim().length > 0);
+      l.items.sort((a,b) => a.x - b.x);
+    }
+    return lines.filter(l => l.items.length > 0);
+  }
+  function joinTokens(tokenItems){ return tokenItems.map(i => i.str).join(' ').replace(/\s+/g,' ').trim(); }
+  async function extractPageLines(page){
+    const content = await page.getTextContent();
+    const items = content.items.map(it => ({ x: it.transform[4], y: it.transform[5], str: it.str }));
+    return groupLines(items);
+  }
+
+  function extractGradeLevel(lines){
+    for (const line of lines) { const m = line.match(/(\d+)\s*학년(?!도)/); if (m) return m[1]; }
+    return null;
+  }
+  function extractAcademicYear(lines){
+    for (const line of lines) { const m = line.match(/(\d+)\s*학년도/); if (m) return m[1]; }
+    return null;
+  }
+  function extractSemester(lines){
+    for (const line of lines) { const m = line.match(/(\d+)\s*학기/); if (m) return m[1]; }
+    return null;
+  }
+  function extractRound(lines){
+    for (const line of lines) { const m = line.match(/(\d+)\s*차\s*정기시험/); if (m) return m[1]; }
+    return null;
+  }
+  function extractSubject(lines){
+    for (const line of lines) {
+      const m = line.match(/정기시험\s+(?:[^:()\n]*:)?\s*([^\(]+?)\s*\(/);
+      if (m) return m[1].trim();
+    }
+    return null;
+  }
+
+  // 정오표 하단의 표기 안내(정답표기 규칙, 복수답안 코드표, 기타점수 설명) 3~4줄을 그대로 추출
+  // 복수답안 코드표(A=1,2 ... Z=1,2,3,4,5)가 페이지 폭 때문에 여러 줄로 나뉠 수 있어,
+  // 시작 줄("맞음/틀림" 안내)부터 끝 줄("기타란" 안내)까지 통째로 포함한다.
+  function extractAnswerLegend(lines){
+    let startIdx = -1, endIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (startIdx === -1 && /^※.*맞음.*틀림/.test(lines[i])) startIdx = i;
+      if (startIdx !== -1 && /^※.*기타란/.test(lines[i])) { endIdx = i; break; }
+    }
+    if (startIdx === -1) return null;
+    if (endIdx === -1) endIdx = startIdx;
+    return lines.slice(startIdx, endIdx + 1).join('\n');
+  }
+
+  function parseAnswerSheetPage(tokenLines){
+    let banLabel = null, grade = null, N = null;
+    let answerKey = [], points = [];
+    const rows = [];
+    const allLines = [];
+    for (const tl of tokenLines) {
+      const line = joinTokens(tl.items);
+      allLines.push(line);
+      if (banLabel === null) {
+        const m = line.match(/(\d+)\s*학년\s+(\S+)\s+강의실/);
+        if (m) { grade = m[1]; banLabel = m[2]; }
+      }
+      if (N === null) {
+        const idx = line.indexOf('정답');
+        if (idx !== -1) {
+          const rest = line.slice(idx + 2).trim().split(/\s+/);
+          const nums = [];
+          for (const t of rest) { if (/^\d+$/.test(t)) nums.push(t); else break; }
+          if (nums.length > 0) { N = nums.length; answerKey = nums; }
+        }
+      }
+      if (N && !points.length) {
+        const idx = line.indexOf('배점');
+        if (idx !== -1) {
+          const rest = line.slice(idx + 2).trim().split(/\s+/);
+          if (rest.length >= N) points = rest.slice(0, N);
+        }
+      }
+      const sm = line.match(/^(\d+)\s+(\d+\/\d+)\s+(\S+)\s+(.+)$/);
+      if (sm) {
+        const name = sm[3];
+        if (name === '정답' || name === '배점') continue;
+        const seatParts = sm[2].split('/');
+        const ban = seatParts[0], beon = seatParts[1];
+        const tokens = sm[4].trim().split(/\s+/);
+        if (!N || tokens.length < N) continue;
+        const answers = tokens.slice(0, N);
+        const trailingRaw = tokens.slice(N).filter(t => /^-?\d+(\.\d+)?$/.test(t));
+        let 선택형='',서답형='',기타='',총점='';
+        if (trailingRaw.length >= 4) {
+          기타 = trailingRaw[trailingRaw.length-2]; 총점 = trailingRaw[trailingRaw.length-1];
+          선택형 = trailingRaw[trailingRaw.length-4]; 서답형 = trailingRaw[trailingRaw.length-3];
+        } else if (trailingRaw.length === 3) {
+          선택형 = trailingRaw[0]; 서답형 = trailingRaw[1]; 총점 = trailingRaw[2];
+        } else if (trailingRaw.length === 2) {
+          선택형 = trailingRaw[0]; 총점 = trailingRaw[1];
+        } else if (trailingRaw.length === 1) {
+          총점 = trailingRaw[0];
+        }
+        rows.push({ ban, beon, name, answers, 선택형, 서답형, 기타, 총점 });
+      }
+    }
+    if (grade === null) grade = extractGradeLevel(allLines);
+    const subject = extractSubject(allLines);
+    const year = extractAcademicYear(allLines);
+    const semester = extractSemester(allLines);
+    const round = extractRound(allLines);
+    const legend = extractAnswerLegend(allLines);
+    return { grade, banLabel, N, rows, subject, year, semester, round, answerKey, points, legend };
+  }
+
+  /* ---------------- 인식하기 ---------------- */
+  recognizeBtn.addEventListener('click', async () => {
+    if (!fileEntries.length || isProcessing) return;
+    isProcessing = true;
+    recognizeBtn.disabled = true;
+    resetBtn.disabled = true;
+    dropZone.classList.add('disabled');
+    fileErr.style.display = 'none';
+    resultWarn.innerHTML = '';
+    recognizeHint.textContent = '인식 중...';
+
+    students = [];
+    maxN = 0;
+    recognizedSubject = null; recognizedYear = null; recognizedSemester = null; recognizedRound = null;
+    recognizedAnswerKey = []; recognizedPoints = []; recognizedLegend = null;
+    const emailTpl = (emailFormatInput.value.trim() || emailFormatInput.placeholder).trim();
+    const failures = [];
+    const detectionLog = [];
+
+    for (const entry of fileEntries) {
+      entry.status = 'pending';
+      renderFileList();
+      try {
+        const buf = await entry.file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        let foundAny = false;
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const tokenLines = await extractPageLines(page);
+          const parsed = parseAnswerSheetPage(tokenLines);
+          if (parsed.rows.length) {
+            foundAny = true;
+            if (parsed.N) maxN = Math.max(maxN, parsed.N);
+            if (!recognizedSubject && parsed.subject) recognizedSubject = parsed.subject;
+            if (!recognizedYear && parsed.year) recognizedYear = parsed.year;
+            if (!recognizedSemester && parsed.semester) recognizedSemester = parsed.semester;
+            if (!recognizedRound && parsed.round) recognizedRound = parsed.round;
+            if (!recognizedAnswerKey.length && parsed.answerKey.length) recognizedAnswerKey = parsed.answerKey;
+            if (!recognizedPoints.length && parsed.points.length) recognizedPoints = parsed.points;
+            if (!recognizedLegend && parsed.legend) recognizedLegend = parsed.legend;
+            parsed.rows.forEach(r => {
+              const hakbun = toStudentId(parsed.grade, r.ban, r.beon);
+              students.push({
+                subject: parsed.subject || '', year: parsed.year || '', semester: parsed.semester || '', round: parsed.round || '',
+                grade: parsed.grade, ban: r.ban, beon: r.beon, name: r.name,
+                hakbun,
+                email: emailTpl.replace(/\{학번\}/g, hakbun),
+                answers: r.answers,
+                선택형: r.선택형, 서답형: r.서답형, 기타: r.기타, 총점: r.총점,
+              });
+            });
+            detectionLog.push(`${entry.file.name} p${p}: ${parsed.banLabel || '?'}강의실 · ${parsed.rows.length}명 · 문항 ${parsed.N || '?'}개`);
+          }
+        }
+        entry.status = foundAny ? 'ok' : 'error';
+        if (!foundAny) failures.push(`${entry.file.name}: '학생답 정오표' 형식을 인식하지 못했습니다.`);
+      } catch (err) {
+        entry.status = 'error';
+        failures.push(`${entry.file.name}: ${err.message || err}`);
+      }
+      renderFileList();
+    }
+
+    isProcessing = false;
+    resetBtn.disabled = false;
+    dropZone.classList.remove('disabled');
+    recognizeBtn.disabled = false;
+    recognizeHint.textContent = detectionLog.length ? `인식 로그: ${detectionLog.join(' / ')}` : '';
+
+    if (failures.length) {
+      fileErr.style.display = 'block';
+      fileErr.innerHTML = `<div class="err-box">${failures.map(escapeHtml).join('<br>')}</div>`;
+    }
+
+    if (!students.length) {
+      resultStats.style.display = 'none';
+      previewWrap.style.display = 'none';
+      downloadXlsxBtn.disabled = true;
+      gasGenBtn.disabled = true;
+      gasHint.textContent = '인식된 학생이 없습니다. 파일을 확인해주세요.';
+      return;
+    }
+
+    const uniqMap = new Map();
+    students.forEach(s => uniqMap.set(s.hakbun, s));
+    students = Array.from(uniqMap.values()).sort((a,b) => a.hakbun.localeCompare(b.hakbun));
+
+    renderResults();
+    renderChips();
+    renderPreviewSelect();
+    renderMailPreview();
+    downloadXlsxBtn.disabled = false;
+    gasGenBtn.disabled = false;
+    gasHint.textContent = `${students.length}명의 데이터로 코드를 생성할 수 있습니다.`;
+  });
+
+  function renderResults(){
+    const banSet = new Set(students.map(s => s.ban));
+    resultStats.style.display = 'flex';
+    resultStats.innerHTML = `
+      <div class="stat"><div class="v">${students.length}</div><div class="l">인식된 학생 수</div></div>
+      <div class="stat"><div class="v">${banSet.size}</div><div class="l">인식된 반 수</div></div>
+      <div class="stat"><div class="v">${maxN}</div><div class="l">문항 수</div></div>
+      <div class="stat"><div class="v" style="font-size:14px;">${escapeHtml(recognizedYear || '-')}학년도 ${escapeHtml(recognizedSemester||'-')}학기 ${escapeHtml(recognizedRound||'-')}차 · ${escapeHtml(recognizedSubject || '-')}</div><div class="l">인식된 시험 정보</div></div>
+    `;
+
+    const cols = ['학번','이름','이메일'];
+    for (let i = 1; i <= maxN; i++) cols.push(String(i));
+    cols.push('선택형','서답형','기타','총점');
+
+    let thead = '<thead><tr>' + cols.map((c,i) => {
+      const isQ = i >= 3 && i < 3 + maxN;
+      return `<th class="${isQ ? 'q-col' : ''}">${escapeHtml(c)}</th>`;
+    }).join('') + '</tr></thead>';
+    let tbody = '<tbody>' + students.map(s => {
+      const answerCells = [];
+      for (let i = 0; i < maxN; i++) answerCells.push(`<td class="q-col">${escapeHtml(s.answers[i] != null ? s.answers[i] : '')}</td>`);
+      return `<tr><td>${escapeHtml(s.hakbun)}</td><td class="name-cell">${escapeHtml(s.name)}</td><td class="email-cell">${escapeHtml(s.email)}</td>${answerCells.join('')}<td>${escapeHtml(s.선택형)}</td><td>${escapeHtml(s.서답형)}</td><td>${escapeHtml(s.기타)}</td><td>${escapeHtml(s.총점)}</td></tr>`;
+    }).join('') + '</tbody>';
+    previewTable.innerHTML = thead + tbody;
+    previewWrap.style.display = 'block';
+    resultWarn.innerHTML = `<div class="note-box">전체 ${students.length}명의 데이터를 모두 표에서 확인할 수 있습니다.</div>`;
+  }
+
+  /* ---------------- 메일 내용 작성 ---------------- */
+  function renderChips(){
+    chipRow.innerHTML = `
+      <span class="chip" data-ins="{이름}">{이름}</span>
+      <span class="chip" data-ins="{학번}">{학번}</span>
+      <span class="chip" data-ins="{과목}">{과목}</span>
+      <span class="chip" data-ins="{학년도}">{학년도}</span>
+      <span class="chip" data-ins="{학기}">{학기}</span>
+      <span class="chip" data-ins="{차수}">{차수}</span>
+      <span class="chip special" data-ins="{정오표}">{정오표} (표 자동 생성)</span>
+      <span class="chip special" data-ins="{정오표 설명}">{정오표 설명} (표기 안내 자동 삽입)</span>
+    `;
+    chipRow.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => insertAtCursor(bodyInput, chip.dataset.ins));
+    });
+  }
+  function insertAtCursor(el, text){
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    el.value = el.value.slice(0, start) + text + el.value.slice(end);
+    el.focus();
+    el.selectionStart = el.selectionEnd = start + text.length;
+    renderMailPreview();
+  }
+
+  function fieldValue(key, student){
+    if (key === '이름') return student.name || '';
+    if (key === '학번') return student.hakbun || '';
+    if (key === '과목') return recognizedSubject || '';
+    if (key === '학년도') return recognizedYear || '';
+    if (key === '학기') return recognizedSemester || '';
+    if (key === '차수') return recognizedRound || '';
+    if (key === '정오표 설명') return recognizedLegend || '';
+    return null;
+  }
+
+  function buildAnswerTableHtml(student){
+    let html = '<table class="answer-table"><tr><th>번호</th>';
+    for (let i = 0; i < maxN; i++) html += `<th>${i+1}</th>`;
+    html += '</tr><tr><th>정답</th>';
+    for (let i = 0; i < maxN; i++) html += `<td>${escapeHtml(recognizedAnswerKey[i] || '')}</td>`;
+    html += '</tr><tr><th>배점</th>';
+    for (let i = 0; i < maxN; i++) html += `<td>${escapeHtml(recognizedPoints[i] || '')}</td>`;
+    html += '</tr><tr><th>내 응답</th>';
+    for (let i = 0; i < maxN; i++) html += `<td>${escapeHtml(student.answers[i] != null ? student.answers[i] : '')}</td>`;
+    html += '</tr></table>';
+    html += '<table class="answer-table" style="margin-top:8px;">';
+    html += '<tr><th>선택형점수</th><th>서답형점수</th><th>기타점수</th><th>과목총점</th></tr>';
+    html += `<tr><td>${escapeHtml(student.선택형)}</td><td>${escapeHtml(student.서답형)}</td><td>${escapeHtml(student.기타)}</td><td>${escapeHtml(student.총점)}</td></tr>`;
+    html += '</table>';
+    return html;
+  }
+
+  function renderTemplateText(tpl, student){
+    return String(tpl || '').replace(/\{([^}]+)\}/g, (m, key) => {
+      const v = fieldValue(key.trim(), student);
+      return v !== null ? v : m;
+    });
+  }
+
+  function renderPreviewSelect(){
+    previewSelect.innerHTML = students.map((s,i) => `<option value="${i}">${escapeHtml(s.hakbun)}_${escapeHtml(s.name || '(이름 없음)')}</option>`).join('');
+  }
+  previewSelect.addEventListener('change', renderMailPreview);
+  subjectInput.addEventListener('input', renderMailPreview);
+  bodyInput.addEventListener('input', renderMailPreview);
+
+  function renderMailPreview(){
+    if (!students.length) { previewBox.innerHTML = '<span class="hint">PDF를 먼저 인식해주세요.</span>'; return; }
+    const idx = parseInt(previewSelect.value || '0', 10);
+    const student = students[idx] || students[0];
+    const subj = renderTemplateText(subjectInput.value, student);
+
+    // 본문: 이스케이프 후 개행을 <br>로, {정오표}는 실제 표로 치환
+    let bodyHtml = escapeHtml(bodyInput.value).replace(/\n/g, '<br>');
+    bodyHtml = bodyHtml.replace(/\{([^}]+)\}/g, (m, key) => {
+      const k = key.trim();
+      if (k === '정오표') return '___TABLE___';
+      const v = fieldValue(k, student);
+      return v !== null ? escapeHtml(v).replace(/\n/g, '<br>') : m;
+    });
+    bodyHtml = bodyHtml.split('___TABLE___').join(buildAnswerTableHtml(student));
+
+    previewBox.innerHTML = `<div class="p-subject">${escapeHtml(subj) || '<span class="hint">제목을 입력하세요</span>'}</div><div class="p-body">${bodyHtml}</div>`;
+  }
+
+  /* ---------------- 엑셀 저장 ---------------- */
+  downloadXlsxBtn.addEventListener('click', () => {
+    if (!students.length) return;
+    const cols = ['학번','이름','이메일'];
+    for (let i = 1; i <= maxN; i++) cols.push(String(i));
+    cols.push('선택형점수','서답형점수','기타점수','과목총점');
+
+    const aoa = [cols];
+    students.forEach(s => {
+      const row = [s.hakbun, s.name, s.email];
+      for (let i = 0; i < maxN; i++) row.push(s.answers[i] != null ? s.answers[i] : '');
+      row.push(
+        s.선택형 !== '' ? parseFloat(s.선택형) : '',
+        s.서답형 !== '' ? parseFloat(s.서답형) : '',
+        s.기타 !== '' ? parseFloat(s.기타) : '',
+        s.총점 !== '' ? parseFloat(s.총점) : ''
+      );
+      aoa.push(row);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = cols.map(() => ({ wch: 10 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '학생답_정오표');
+    XLSX.writeFile(wb, '학생답_정오표_추출결과.xlsx');
+  });
+
+  /* ---------------- Google Apps Script 코드 생성 ---------------- */
+  function buildAppsScriptCode(){
+    const subjectLiteral = JSON.stringify(subjectInput.value || '');
+    const bodyLiteral = JSON.stringify(bodyInput.value || '');
+    const answerKeyLiteral = JSON.stringify(recognizedAnswerKey);
+    const pointsLiteral = JSON.stringify(recognizedPoints);
+    const legendLiteral = JSON.stringify(recognizedLegend || '');
+    const examSubjectLiteral = JSON.stringify(recognizedSubject || '');
+    const examYearLiteral = JSON.stringify(recognizedYear || '');
+    const examSemesterLiteral = JSON.stringify(recognizedSemester || '');
+    const examRoundLiteral = JSON.stringify(recognizedRound || '');
+
+    return `/**
+ * 학생답 정오표 개인별 이메일 자동 발송 스크립트 (Google Apps Script)
+ * ------------------------------------------------------------
+ * 1) 이 시트의 1행에 엑셀과 동일한 헤더가 있어야 합니다. ('이메일' 열 필수)
+ * 2) 확장 프로그램 > Apps Script 에서 기존 코드를 지우고 이 코드를 붙여넣은 뒤 저장하세요.
+ * 3) 위쪽 실행(▶) 버튼으로 sendGradeEmails 함수를 실행하세요. 처음 실행 시 권한 승인이 필요합니다.
+ * 4) 발송 결과는 이 시트의 오른쪽에 "발송상태" 열로 자동 기록됩니다.
+ *    (이미 "발송완료"로 기록된 행은 다시 실행해도 중복 발송되지 않습니다)
+ * ------------------------------------------------------------
+ */
+function sendGradeEmails() {
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+  var header = data[0].map(function (h) { return String(h).trim(); });
+
+  var emailIdx = header.findIndex(function (h) { return /이메일|e-?mail|메일주소/i.test(h); });
+  if (emailIdx === -1) { throw new Error("'이메일' 열을 찾을 수 없습니다. 1행의 헤더를 확인해주세요."); }
+  var nameIdx = header.indexOf('이름');
+  if (nameIdx === -1) nameIdx = header.indexOf('성명');
+
+  var statusIdx = header.indexOf('발송상태');
+  if (statusIdx === -1) {
+    statusIdx = header.length;
+    sheet.getRange(1, statusIdx + 1).setValue('발송상태');
+  }
+
+  // 정답/배점/과목/학년도/학기/차수는 시험 전체에서 하나로 고정되므로 스크립트 안에 직접 담아둡니다.
+  var answerKey = ${answerKeyLiteral};
+  var points = ${pointsLiteral};
+  var answerLegend = ${legendLiteral};
+  var examSubject = ${examSubjectLiteral};
+  var examYear = ${examYearLiteral};
+  var examSemester = ${examSemesterLiteral};
+  var examRound = ${examRoundLiteral};
+  // 시트 헤더 중 숫자로만 된 열(문항 번호 열)을 자동으로 찾습니다. 시험마다 문항 수가 달라도 자동으로 맞춰집니다.
+  var questionCols = [];
+  header.forEach(function (h, i) {
+    if (/^\\d+$/.test(h)) questionCols.push({ idx: i, label: h });
+  });
+  questionCols.sort(function (a, b) { return parseInt(a.label, 10) - parseInt(b.label, 10); });
+
+  var subjectTpl = ${subjectLiteral};
+  var bodyTpl = ${bodyLiteral};
+
+  function fieldValue(key, row) {
+    if (key === '이름' && nameIdx !== -1) return row[nameIdx];
+    if (key === '정오표 설명') return answerLegend;
+    if (key === '과목') return examSubject;
+    if (key === '학년도') return examYear;
+    if (key === '학기') return examSemester;
+    if (key === '차수') return examRound;
+    var idx = header.indexOf(key);
+    return idx !== -1 ? row[idx] : null;
+  }
+
+  function buildAnswerTableHtml(row) {
+    var html = '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;font-family:sans-serif;font-size:13px;text-align:center;">';
+    html += '<tr><th style="background:#F2F4F7;">번호</th>' + questionCols.map(function (c) { return '<th style="background:#F2F4F7;">' + c.label + '</th>'; }).join('') + '</tr>';
+    html += '<tr><th style="background:#F2F4F7;">정답</th>' + questionCols.map(function (c, i) { return '<td>' + (answerKey[i] || '') + '</td>'; }).join('') + '</tr>';
+    html += '<tr><th style="background:#F2F4F7;">배점</th>' + questionCols.map(function (c, i) { return '<td>' + (points[i] || '') + '</td>'; }).join('') + '</tr>';
+    html += '<tr><th style="background:#F2F4F7;">내 응답</th>' + questionCols.map(function (c) { return '<td>' + (row[c.idx] || '') + '</td>'; }).join('') + '</tr>';
+    html += '</table>';
+
+    var scoreLabels = ['선택형점수', '서답형점수', '기타점수', '과목총점'];
+    html += '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;font-family:sans-serif;font-size:13px;text-align:center;margin-top:8px;">';
+    html += '<tr>' + scoreLabels.map(function (l) { return '<th style="background:#F2F4F7;">' + l + '</th>'; }).join('') + '</tr>';
+    html += '<tr>' + scoreLabels.map(function (l) { var v = fieldValue(l, row); return '<td>' + (v !== null ? v : '') + '</td>'; }).join('') + '</tr>';
+    html += '</table>';
+    return html;
+  }
+
+  function renderPlain(tpl, row) {
+    return tpl.replace(/\\{([^}]+)\\}/g, function (m, key) {
+      key = key.trim();
+      if (key === '정오표') return '';
+      var v = fieldValue(key, row);
+      return v !== null ? v : m;
+    });
+  }
+
+  function renderHtml(tpl, row) {
+    var esc = tpl.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\n/g,'<br>');
+    esc = esc.replace(/\\{([^}]+)\\}/g, function (m, key) {
+      key = key.trim();
+      if (key === '정오표') return '___TABLE___';
+      var v = fieldValue(key, row);
+      return v !== null ? String(v).replace(/\\n/g, '<br>') : m;
+    });
+    return esc.split('___TABLE___').join(buildAnswerTableHtml(row));
+  }
+
+  var sent = 0, failed = 0, timedOut = false;
+  var startTime = Date.now();
+  var TIME_LIMIT_MS = 4.5 * 60 * 1000; // 실행 시간 제한(약 6분)보다 여유있게 4분 30초에서 안전하게 중단
+  var BATCH_SIZE = 15; // 이 명수마다 시트에 모아서 한 번에 기록 (매번 기록하면 매우 느려짐)
+  var pendingUpdates = []; // [{row, value}, ...] - 아직 시트에 반영 안 된 상태값
+
+  function flushUpdates() {
+    pendingUpdates.forEach(function (u) {
+      sheet.getRange(u.row, statusIdx + 1).setValue(u.value);
+    });
+    pendingUpdates = [];
+    SpreadsheetApp.flush();
+  }
+
+  Logger.log('오늘 남은 발송 가능 건수: ' + MailApp.getRemainingDailyQuota());
+
+  for (var r = 1; r < data.length; r++) {
+    if (Date.now() - startTime > TIME_LIMIT_MS) {
+      timedOut = true;
+      Logger.log('실행 시간 제한에 가까워져 중단합니다. (이미 처리된 학생은 저장되었으니, 스크립트를 다시 실행하면 나머지부터 이어서 발송됩니다)');
+      break;
+    }
+
+    var row = data[r];
+    var email = String(row[emailIdx] || '').trim();
+    if (!email) continue;
+    if (row[statusIdx] === '발송완료') continue;
+
+    try {
+      var subject = renderPlain(subjectTpl, row);
+      var htmlBody = renderHtml(bodyTpl, row);
+      GmailApp.sendEmail(email, subject, 'HTML 형식 메일입니다. HTML을 지원하는 메일 클라이언트에서 확인해주세요.', { htmlBody: htmlBody });
+      pendingUpdates.push({ row: r + 1, value: '발송완료 · ' + new Date().toLocaleString() });
+      sent++;
+    } catch (err) {
+      pendingUpdates.push({ row: r + 1, value: '실패: ' + err.message });
+      failed++;
+    }
+
+    if (pendingUpdates.length >= BATCH_SIZE) flushUpdates();
+    if ((sent + failed) % 10 === 0) Logger.log('진행 중... ' + (sent + failed) + '명 처리 (성공 ' + sent + ', 실패 ' + failed + ')');
+  }
+  flushUpdates(); // 남아있는 기록 마저 저장
+
+  var msg = '발송 완료\\n성공: ' + sent + '건, 실패: ' + failed + '건';
+  if (timedOut) msg += '\\n\\n⏱ 실행 시간 제한으로 나머지 학생은 처리하지 못했습니다. 스크립트를 다시 실행하면 (이미 보낸 학생은 건너뛰고) 이어서 발송됩니다.';
+  SpreadsheetApp.getUi().alert(msg);
+}
+`;
+  }
+
+  gasGenBtn.addEventListener('click', async () => {
+    const code = buildAppsScriptCode();
+    gasCodeBox.value = code;
+    try {
+      await navigator.clipboard.writeText(code);
+      gasHint.textContent = '코드가 클립보드에 복사되었습니다. Apps Script 편집창에 붙여넣으세요.';
+    } catch (err) {
+      gasHint.textContent = '자동 복사에 실패했습니다. 아래 상자에서 직접 선택(Ctrl+A)해서 복사해주세요.';
+      gasCodeBox.focus();
+      gasCodeBox.select();
+    }
+  });
+
+  /* ---------------- 가이드 패널 / 다운로드 ---------------- */
+  document.getElementById('guideToggle').addEventListener('click', () => {
+    document.getElementById('guidePanel').classList.toggle('open');
+  });
+
+  document.getElementById('downloadProgramBtn').addEventListener('click', () => {
+    const blob = new Blob([ORIGINAL_HTML], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '학생답_정오표_개인별_이메일_발송_프로그램.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  });
+
+  renderMailPreview();
+})();
+</script>
+</body>
+</html>
