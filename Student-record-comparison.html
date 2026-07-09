@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>나이스 세특-원자료 대조 프로그램</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --ink:#1B2430; --ink-soft:#57616F; --line:#E2E6EB; --paper:#F6F7F9; --card:#FFFFFF;
+    --navy:#213863; --navy-deep:#152540; --teal:#0F8A82; --teal-soft:#E3F4F1;
+    --amber:#C8791C; --amber-soft:#FBF0DF; --rose:#B8465A; --rose-soft:#FBEAEC;
+    --violet:#6E56A6; --violet-soft:#EEEAF7; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.5;padding-bottom:80px;}
+  .num{font-family:'JetBrains Mono','Noto Sans KR',monospace;font-variant-numeric:tabular-nums;}
+
+  header{background:linear-gradient(155deg,var(--navy-deep) 0%,var(--navy) 62%,#2B4C7E 100%);color:#fff;padding:38px 28px 46px;}
+  header .eyebrow{font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:#9FB3D6;font-weight:600;margin-bottom:10px;display:inline-block;text-decoration:none;transition:color .15s;}
+  header .eyebrow:hover{color:#fff;text-decoration:underline;}
+  header h1{margin:0 0 10px;font-size:clamp(22px,4vw,30px);font-weight:900;letter-spacing:-.01em;}
+  header p{margin:0;color:#C7D4E8;font-size:14.5px;}
+
+  .wrap{max-width:980px;margin:0 auto;padding:34px 18px 0;}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:18px;box-shadow:0 1px 2px rgba(21,37,64,.04);}
+
+  .rail-step{display:grid;grid-template-columns:40px 1fr;gap:0 16px;margin:30px 0 16px;}
+  .rail-step.first{margin-top:10px;}
+  .rail-step .rail-col{display:flex;flex-direction:column;align-items:center;}
+  .rail-step .num-badge{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13.5px;border:1.5px solid var(--line);color:var(--ink-soft);background:#fff;flex:0 0 auto;}
+  .rail-step.active .num-badge{border-color:var(--teal);color:var(--teal);background:var(--teal-soft);}
+  .rail-step.amber .num-badge{border-color:var(--amber);color:var(--amber);background:var(--amber-soft);}
+  .rail-step .rail-line{flex:1;width:1.5px;background:var(--line);margin-top:4px;min-height:14px;}
+  .rail-step .rail-body h2{display:block;font-size:19px;font-weight:800;margin:2px 0 4px;color:var(--ink);letter-spacing:-.01em;}
+  .rail-step .rail-body .rail-desc{font-size:13.5px;color:var(--ink-soft);margin:0;line-height:1.55;}
+
+  .guide-panel{border:1px solid var(--line);border-radius:14px;background:var(--card);margin-bottom:8px;overflow:hidden;box-shadow:0 1px 3px rgba(20,30,50,.04);}
+  .guide-toggle{width:100%;display:flex;align-items:center;gap:12px;padding:16px 20px;cursor:pointer;background:none;border:none;font-family:inherit;text-align:left;}
+  .guide-toggle .gt-icon{font-size:15px;width:32px;height:32px;border-radius:50%;background:var(--teal-soft);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .guide-toggle .gt-title{font-size:15px;font-weight:800;color:var(--ink);flex:1;}
+  .guide-toggle .gt-hint{font-size:12.5px;color:var(--ink-soft);}
+  .guide-toggle .gt-arrow{font-size:11px;color:var(--ink-soft);transition:.2s transform;flex:0 0 auto;}
+  .guide-panel.open .gt-arrow{transform:rotate(180deg);}
+  .guide-body{display:none;padding:0 20px 20px;border-top:1px solid var(--line);}
+  .guide-panel.open .guide-body{display:block;}
+  .guide-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:18px;}
+  .guide-step{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 15px;}
+  .guide-step .gs-num{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:800;color:var(--teal);letter-spacing:.08em;margin-bottom:6px;}
+  .guide-step .gs-title{font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:7px;}
+  .guide-step .gs-body{font-size:12.5px;color:var(--ink-soft);line-height:1.65;word-break:keep-all;}
+  .guide-step .gs-body b{color:var(--ink);}
+  .guide-tip{margin-top:14px;padding:13px 16px;background:var(--teal-soft);border-radius:10px;font-size:12.5px;color:var(--ink-soft);line-height:1.65;word-break:keep-all;}
+  .guide-tip b{color:var(--teal);}
+
+  .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media(max-width:760px){.upload-grid{grid-template-columns:1fr;}}
+  .upload-col h3{font-size:14px;font-weight:800;margin:0 0 4px;color:var(--ink);}
+  .upload-col .uc-desc{font-size:12px;color:var(--ink-soft);margin:0 0 10px;line-height:1.55;}
+
+  .dropzone{border:1.5px dashed #B9C4D4;border-radius:12px;padding:26px 18px;text-align:center;cursor:pointer;background:#FAFBFC;transition:border-color .15s, background .15s;}
+  .dropzone:hover, .dropzone.drag{border-color:var(--teal);background:var(--teal-soft);}
+  .dropzone .icon{font-size:26px;margin-bottom:6px;}
+  .dropzone .main-txt{font-size:14px;font-weight:600;color:var(--ink);}
+  .dropzone .sub-txt{font-size:12px;color:var(--ink-soft);margin-top:3px;}
+  input[type=file]{display:none;}
+
+  .file-list{margin-top:12px;display:flex;flex-direction:column;gap:8px;}
+  .file-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#FAFBFC;border:1px solid var(--line);border-radius:9px;font-size:13px;}
+  .file-item .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-item .fmeta{color:var(--ink-soft);font-size:11.5px;flex-shrink:0;}
+  .file-item .rm{cursor:pointer;color:var(--rose);border:none;background:none;font-size:15px;font-weight:700;padding:2px 6px;border-radius:6px;}
+  .file-item .rm:hover{background:var(--rose-soft);}
+
+  .field-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:20px;}
+
+  .btn{appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:14.5px;padding:12px 22px;border-radius:10px;background:var(--navy);color:#fff;transition:transform .08s, background .15s, opacity .15s;}
+  .btn:hover:not(:disabled){background:var(--navy-deep);}
+  .btn:active:not(:disabled){transform:scale(.98);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn.ghost{background:#fff;color:var(--navy);border:1.5px solid #C7CEDA;}
+  .btn.ghost:hover:not(:disabled){background:#F1F4F8;}
+  .btn.ghost.active{background:var(--violet);color:#fff;border-color:var(--violet);}
+  .btn.sm{padding:8px 14px;font-size:13px;border-radius:8px;}
+  .program-download-row{display:flex;justify-content:flex-end;margin-bottom:12px;}
+
+  .status{margin-top:14px;font-size:13.5px;color:var(--ink-soft);display:none;align-items:center;gap:8px;}
+  .status.show{display:flex;}
+  .spinner{width:15px;height:15px;border-radius:50%;border:2.5px solid #C7CEDA;border-top-color:var(--teal);animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .warn-box{margin-top:12px;padding:11px 14px;background:var(--amber-soft);border:1px solid #EBCF9C;border-radius:9px;font-size:12.5px;color:#7A5211;white-space:pre-line;}
+  .err-box{margin-top:12px;padding:11px 14px;background:var(--rose-soft);border:1px solid #E6B7C0;border-radius:9px;font-size:12.5px;color:#7A2334;white-space:pre-line;}
+  .note-box{margin-top:14px;font-size:12px;color:var(--ink-soft);background:#FAFBFC;border:1px dashed #C7CEDA;border-radius:9px;padding:10px 12px;line-height:1.6;}
+
+  #resultSection{display:none;}
+  #resultSection.show{display:block;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+  @media(max-width:760px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+  .stat-card{background:#FAFBFC;border:1px solid var(--line);border-radius:12px;padding:16px 14px;}
+  .stat-card .lbl{font-size:11.5px;color:var(--ink-soft);font-weight:600;margin-bottom:6px;}
+  .stat-card .val{font-size:24px;font-weight:800;color:var(--navy);}
+  .stat-card.rose .val{color:var(--rose);}
+  .stat-card.amber .val{color:var(--amber);}
+  .stat-card.gray .val{color:var(--ink-soft);}
+
+  .controls{display:flex;gap:8px;margin:18px 0;flex-wrap:wrap;align-items:center;}
+  input[type=text]{padding:9px 12px;border:1px solid #C7CEDA;border-radius:9px;font-size:13px;width:180px;font-family:inherit;}
+  select{padding:9px 12px;border:1px solid #C7CEDA;border-radius:9px;font-size:13px;font-family:inherit;background:#fff;}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{padding:9px 10px;text-align:center;border-bottom:1px solid var(--line);}
+  thead th{background:#F2F4F7;color:var(--ink-soft);font-weight:700;font-size:12px;letter-spacing:.02em;white-space:nowrap;cursor:pointer;}
+  tbody tr:hover{background:#FAFBFC;cursor:pointer;}
+  tbody tr:last-child td{border-bottom:none;}
+  td.name-cell, th.name-cell{text-align:left;font-weight:600;}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .preview-cell{color:var(--ink-soft);max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}
+
+  .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11.5px;font-weight:700;white-space:nowrap;}
+  .badge-ok{background:#ebfbee;color:#2f9e44;}
+  .badge-review{background:var(--rose-soft);color:var(--rose);}
+  .badge-norow{background:#f1f3f5;color:#868e96;}
+  .badge-fail{background:var(--amber-soft);color:var(--amber);}
+
+  .section-title{font-size:15px;font-weight:800;margin:0 0 3px;display:flex;align-items:center;gap:8px;}
+  .section-sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;}
+  .footer-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;align-items:center;}
+  .hint{font-size:12px;color:var(--ink-soft);}
+  footer.copyright{margin-top:18px;font-size:11.5px;color:#9AA2B1;text-align:center;}
+  footer.copyright .copyright-link{color:#9AA2B1;text-decoration:underline;text-underline-offset:2px;}
+  footer.copyright .copyright-link:hover{color:var(--teal);}
+
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(21,37,64,0.45);z-index:50;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:16px;max-width:900px;width:100%;padding:26px 28px;margin-bottom:40px;}
+  .modal h2{margin:0 0 2px;font-size:18px;font-weight:800;}
+  .modal .meta{color:var(--ink-soft);font-size:12.5px;margin-bottom:14px;}
+  .close-btn{float:right;background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-soft);}
+  .m-section{margin-top:16px;}
+  .m-section h3{font-size:13px;margin:0 0 6px;color:var(--teal);font-weight:800;}
+  .m-section h3.m-h3-major{font-size:16px;color:var(--navy);font-weight:900;margin:0 0 8px;}
+  .m-box{background:#FAFBFC;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.7;white-space:pre-wrap;}
+  .m-box.m-box-seteuk{font-size:15.6px;line-height:1.8;}
+  .m-grid2{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-bottom:8px;}
+  .m-grid2 .k{font-size:11.5px;color:var(--ink-soft);}
+  .m-grid2 .v{font-size:13px;margin-bottom:4px;}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="eyebrow" href="https://zoryong.github.io/Sch-Prgm">슬기로운 학교생활</a>
+  <h1>나이스 세특 &times; 원자료 비교 프로그램</h1>
+  <p>NEIS에서 받은 '과목 세부능력 및 특기사항' 엑셀 파일과 선생님이 관리하는 '학생 원자료' 엑셀 파일을 올리면, 학번을 기준으로 자동 매칭하여 세특에 엉뚱한 학생의 내용이 섞이지 않았는지 비교합니다. 모든 처리는 이 브라우저 안에서만 이루어지며, 업로드한 파일은 외부로 전송되지 않습니다.</p>
+</header>
+
+<div class="wrap">
+
+  <div class="program-download-row">
+    <button class="btn ghost sm" id="downloadProgramBtn" type="button">⬇️ 이 프로그램 다운받기</button>
+  </div>
+
+  <div class="guide-panel" id="guidePanel">
+    <button class="guide-toggle" id="guideToggle" type="button">
+      <span class="gt-icon">📖</span>
+      <span class="gt-title">사용 방법</span>
+      <span class="gt-hint">처음 사용하신다면 클릭해서 확인하세요</span>
+      <span class="gt-arrow">▼</span>
+    </button>
+    <div class="guide-body">
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="gs-num">STEP 01</div>
+          <div class="gs-title">과목세특 엑셀 업로드</div>
+          <div class="gs-body"><b>NEIS에서 내려받은 '과목별 세부능력 및 특기사항' 엑셀 파일</b>을 올리세요. 반이 여러 개라면 여러 파일을 한 번에 올릴 수 있습니다.</div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num">STEP 02</div>
+          <div class="gs-title">원자료 엑셀 업로드</div>
+          <div class="gs-body"><b>선생님이 세특을 작성할 때 참고한 원자료 엑셀 파일</b>을 올리세요. <b>원자료에는 '학번'이 포함된 열이 꼭 있어야 하며</b>, 여러 파일이 나뉘어 있다면 여러 개를 올리면 됩니다. '슬기로운 학교생활'의 '학생 활동자료 통합 프로그램'과 가장 잘 호환됩니다.</div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num">STEP 03</div>
+          <div class="gs-title">비교하기 → 결과 확인</div>
+          <div class="gs-body">[비교하기]를 누르면 반/번호 기준으로 학생을 매칭하고, 세특에 적힌 주제가 그 학생의 원자료와 실제로 맞는지 자동으로 비교합니다.</div>
+        </div>
+      </div>
+      <div class="guide-tip">
+        💡 <b>배지 안내.</b> "검토 필요"는 원자료에 구체적인 제출 내용이 있는데도 세특에 전혀 반영되지 않은 경우, "매칭 실패"는 학번으로 원자료를 찾지 못한 경우, "원자료 없음"은 애초에 제출물이 없어 일반적인 수업 관찰로 작성된 정상적인 경우입니다.<br><br>
+        💡 <b>유사도 점수</b>는 문자 겹침 기반의 참고 지표일 뿐이며, 교사가 표현을 많이 바꿔 썼다면 점수가 낮아도 정상일 수 있습니다. 점수만으로 오류라고 단정하지 말고, 배지와 원문을 함께 확인하세요.
+      </div>
+
+      <div class="guide-tip" style="background:#FAFBFC;border:1px dashed #C7CEDA;">
+        🔍 <b>비교 로직 상세 설명</b><br><br>
+        <b>① 학생 매칭 방법.</b> 원자료의 '학번'(예: 20101)을 <u>학년 1자리 + 반 + 번호 2자리</u>로 해석해 반/번호를 뽑아내고, 이를 세특 파일의 '반/번호' 열(예: 1/1)과 비교해 같은 학생끼리 짝짓습니다. 이름까지 일치하는지도 함께 확인합니다.<br><br>
+        <b>② 원자료 항목 인식.</b> 원자료 엑셀의 헤더를 그대로 읽어 "원자료1, 원자료2..."로 자동 구성합니다. 항목 이름이나 개수는 하드코딩되어 있지 않고, 올리시는 파일에 실제로 적힌 대분류/문항 텍스트에 따라 매번 달라집니다.<br><br>
+        <b>③ 상태 판정 순서.</b> 아래 조건을 위에서부터 순서대로 검사해 하나의 상태를 부여합니다.
+        <br>1) 학번으로 원자료를 아예 못 찾음 → <b>매칭 실패</b>
+        <br>2) 원자료는 찾았지만 이름이 세특 파일과 다름 → <b>이름 불일치</b>
+        <br>3) 원자료의 모든 항목이 비어있음(내용 5자 이하) → <b>원자료 없음</b> (제출물이 없어 일반 관찰형 세특이 정상)
+        <br>4) 원자료에 내용은 있지만 아래 ④의 유사도 점수가 기준선에 못 미침 → <b>검토 필요</b>
+        <br>5) 유사도 점수가 기준선 이상 → <b>정상 매칭</b><br><br>
+        <b>④ 유사도 점수 계산 — 두 가지 방식.</b> 세특 문장에 따옴표(' ')로 인용된 주제 제목이 있는지에 따라 계산 방식과 판정 기준선이 다릅니다.
+        <br>· <b>인용된 주제 제목 기준</b> (별도 표시 없음): 인용된 제목을 글자 단위 2글자(바이그램)로 쪼갠 뒤, 그 학생의 원자료 <u>모든 항목</u>과 각각 비교해 가장 많이 겹치는 항목을 자동으로 찾아 점수를 매깁니다. 어떤 항목과 비교했는지는 결과 화면에서 "최고 일치 항목"으로 확인할 수 있습니다. 진짜 같은 내용이면 겹치는 비율이 높게 나와야 하므로 <b>0.5 이상</b>일 때만 정상 매칭으로 인정합니다.
+        <br>· <b>전체비교</b> (점수 옆에 "(전체비교)" 표시): 인용부호로 감싼 주제 제목이 없는 세특(예: 연습과제 반영형 문장)의 경우, 세특 문장 전체와 원자료의 모든 항목을 합친 텍스트를 통째로 비교합니다. 긴 글끼리의 비교라 겹치는 비율이 구조적으로 낮게 나오는 경향이 있어 기준선을 <b>0.3 이상</b>으로 더 느슨하게 잡았습니다.
+        <br><br>이 두 방식은 같은 열에 나란히 표시되지만 서로 다른 잣대를 쓰기 때문에, 숫자만 놓고 비교하면(예: 전체비교 0.35가 인용 기준 0.42보다 낮은데 오히려 정상 매칭인 경우) 이상해 보일 수 있습니다. 점수 옆에 "(전체비교)" 표시가 있는지 꼭 함께 확인해 주세요. 점수는 어디까지나 참고 지표이니, 배지와 원문을 함께 보고 최종 판단해 주세요.
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 1: upload -->
+  <div class="rail-step active first">
+    <div class="rail-col"><div class="num-badge">01</div><div class="rail-line"></div></div>
+    <div class="rail-body">
+      <h2>파일 업로드</h2>
+      <p class="rail-desc">과목세특 엑셀 파일과 원자료 엑셀 파일을 각각 올린 뒤 [비교하기]를 눌러주세요.</p>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="upload-grid">
+      <div class="upload-col">
+        <h3>① 과목세특 엑셀 파일</h3>
+        <p class="uc-desc">NEIS "과목별 세부능력 및 특기사항" 파일을 업로드하세요.</p>
+        <div class="dropzone" id="seteukDropzone">
+          <div class="icon">📄</div>
+          <div class="main-txt">클릭하거나 파일을 끌어다 놓으세요.</div>
+          <div class="sub-txt">.xlsx · 여러 개 업로드 가능</div>
+          <input type="file" id="seteukInput" accept=".xlsx,.xls" multiple>
+        </div>
+        <div class="file-list" id="seteukFileList"></div>
+      </div>
+      <div class="upload-col">
+        <h3>② 원자료 엑셀 파일</h3>
+        <p class="uc-desc">세특을 작성할 때 참고하였던 원자료를 업로드하세요.</p>
+        <div class="dropzone" id="rawDropzone">
+          <div class="icon">📄</div>
+          <div class="main-txt">클릭하거나 파일을 끌어다 놓으세요.</div>
+          <div class="sub-txt">.xlsx · 여러 개 업로드 가능</div>
+          <input type="file" id="rawInput" accept=".xlsx,.xls" multiple>
+        </div>
+        <div class="file-list" id="rawFileList"></div>
+      </div>
+    </div>
+
+    <div class="err-box" id="fileErr" style="display:none;"></div>
+
+    <div class="field-row">
+      <button class="btn" id="compareBtn" disabled>비교하기</button>
+      <button class="btn ghost" id="resetBtn">초기화</button>
+    </div>
+
+    <div class="status" id="statusBox"><div class="spinner"></div><span id="statusText">분석 중...</span></div>
+  </div>
+
+  <!-- STEP 2: results -->
+  <div id="resultSection">
+    <div class="rail-step amber">
+      <div class="rail-col"><div class="num-badge">02</div></div>
+      <div class="rail-body">
+        <h2>비교 결과</h2>
+        <p class="rail-desc">반·번호를 기준으로 매칭한 학생별 세특과 원자료 비교 결과입니다. 행을 클릭하면 전문을 볼 수 있습니다.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="lbl">전체 학생</div><div class="val num" id="resTotal">-</div></div>
+        <div class="stat-card"><div class="lbl">정상 매칭</div><div class="val num" id="resMatched">-</div></div>
+        <div class="stat-card rose"><div class="lbl">검토 필요</div><div class="val num" id="resUnused">-</div></div>
+        <div class="stat-card amber"><div class="lbl">매칭 실패</div><div class="val num" id="resFail">-</div></div>
+        <div class="stat-card gray"><div class="lbl">원자료 없음</div><div class="val num" id="resNorow">-</div></div>
+      </div>
+
+      <div class="controls">
+        <input type="text" id="searchBox" placeholder="이름 또는 학번(예: 20101) 검색...">
+        <select id="fileFilter"><option value="">전체 파일</option></select>
+        <select id="catFilter">
+          <option value="">전체 상태</option>
+          <option value="NAME_MISMATCH">이름 불일치</option>
+          <option value="MATCH_FAIL">매칭 실패</option>
+          <option value="UNUSED">검토 필요</option>
+          <option value="MATCHED">정상 매칭</option>
+          <option value="NO_RAW">원자료 없음</option>
+        </select>
+        <span style="width:1px;align-self:stretch;background:var(--line);"></span>
+        <button class="btn ghost sm active" id="sortDefaultBtn" type="button">학번 순 정렬</button>
+        <button class="btn ghost sm" id="sortScoreBtn" type="button">유사도 점수 순 정렬</button>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th data-key="hakbun">학번</th><th data-key="ban">반</th><th data-key="beon">번호</th><th data-key="name">이름</th>
+              <th data-key="category">상태</th>
+              <th data-key="ref_score">유사도 점수</th><th>세특 미리보기</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="footer-actions">
+        <button class="btn ghost sm" id="csvBtn" type="button">엑셀로 내보내기</button>
+        <button class="btn ghost sm" id="allPdfBtn" type="button">전체 학생의 PDF 파일 개별 다운로드</button>
+        <span class="hint" id="allPdfHint">학생별 결과가 압축 파일(zip) 1개로 한 번에 다운로드돼요. 데이터가 많으면 시간이 걸릴 수 있어요.</span>
+      </div>
+    </div>
+  </div>
+
+  <footer class="copyright">Copyright © 2026 <a href="mailto:physicsgon@gmail.com" class="copyright-link">physicsgon@gmail.com</a> . All rights reserved.</footer>
+
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal()">&times;</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+// 페이지가 로드된 시점(어떤 사용자 조작도 일어나기 전)의 원본 HTML을 미리 캡처해 둔다.
+// 대조 결과가 화면에 그려진 뒤의 상태가 아니라, 항상 '깨끗한' 최초 상태를 다운로드하기 위함.
+const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+document.getElementById('guideToggle').addEventListener('click', () => {
+  document.getElementById('guidePanel').classList.toggle('open');
+});
+
+document.getElementById('downloadProgramBtn').addEventListener('click', () => {
+  const blob = new Blob([ORIGINAL_HTML], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Student-record-comparison.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+});
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let seteukFiles = [];
+let rawFiles = [];
+let results = [];
+let globalRawGroups = []; // [{ title, fields:[{label}] }] - 원자료 파일들에서 실제로 발견된 대분류/항목의 합집합 (모달·엑셀 내보내기에 그대로 사용)
+let sortKey = null, sortAsc = true;
+
+const seteukInput = document.getElementById('seteukInput');
+const seteukDropzone = document.getElementById('seteukDropzone');
+const seteukFileList = document.getElementById('seteukFileList');
+const rawInput = document.getElementById('rawInput');
+const rawDropzone = document.getElementById('rawDropzone');
+const rawFileList = document.getElementById('rawFileList');
+const fileErr = document.getElementById('fileErr');
+const compareBtn = document.getElementById('compareBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statusBox = document.getElementById('statusBox');
+const statusText = document.getElementById('statusText');
+const resultSection = document.getElementById('resultSection');
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- dropzone wiring ---------- */
+function wireDropzone(dz, input, onFiles){
+  dz.addEventListener('click', () => input.click());
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); onFiles(e.dataTransfer.files); });
+  input.addEventListener('change', e => { onFiles(e.target.files); input.value=''; });
+}
+
+wireDropzone(seteukDropzone, seteukInput, (files) => {
+  const incoming = Array.from(files).filter(f => /\.xlsx?$/i.test(f.name));
+  seteukFiles = seteukFiles.concat(incoming);
+  renderSeteukList();
+});
+wireDropzone(rawDropzone, rawInput, (files) => {
+  const incoming = Array.from(files).filter(f => /\.xlsx?$/i.test(f.name));
+  rawFiles = rawFiles.concat(incoming);
+  renderRawList();
+});
+
+function renderSeteukList(){
+  seteukFileList.innerHTML = seteukFiles.map((f,i) => `
+    <div class="file-item">
+      <span class="fname">📄 ${escapeHtml(f.name)}</span>
+      <span class="fmeta">${(f.size/1024).toFixed(0)} KB</span>
+      <button class="rm" data-i="${i}" title="제거">✕</button>
+    </div>`).join('');
+  seteukFileList.querySelectorAll('[data-i]').forEach(btn => {
+    btn.addEventListener('click', () => { seteukFiles.splice(Number(btn.dataset.i),1); renderSeteukList(); refreshCompareBtn(); });
+  });
+  refreshCompareBtn();
+}
+function renderRawList(){
+  rawFileList.innerHTML = rawFiles.map((f,i) => `
+    <div class="file-item">
+      <span class="fname">📄 ${escapeHtml(f.name)}</span>
+      <span class="fmeta">${(f.size/1024).toFixed(0)} KB</span>
+      <button class="rm" data-i="${i}" title="제거">✕</button>
+    </div>`).join('');
+  rawFileList.querySelectorAll('[data-i]').forEach(btn => {
+    btn.addEventListener('click', () => { rawFiles.splice(Number(btn.dataset.i),1); renderRawList(); refreshCompareBtn(); });
+  });
+  refreshCompareBtn();
+}
+function refreshCompareBtn(){ compareBtn.disabled = !(seteukFiles.length > 0 && rawFiles.length > 0); }
+
+resetBtn.addEventListener('click', () => {
+  seteukFiles = []; rawFiles = []; results = [];
+  renderSeteukList(); renderRawList();
+  fileErr.style.display = 'none';
+  resultSection.classList.remove('show');
+});
+
+/* ============================================================
+   XLSX HELPERS
+   ============================================================ */
+async function readSheetAsArray(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+}
+
+function cell(v){ return (v==null) ? '' : String(v).trim(); }
+
+/* ---------- 세특 파일 파싱 ---------- */
+function findSeteukColumns(rows){
+  for (let r = 0; r < Math.min(rows.length, 6); r++) {
+    const row = rows[r].map(cell);
+    const nameIdx = row.findIndex(c => c === '성명');
+    const detailIdx = row.findIndex(c => c.includes('세부능력'));
+    if (nameIdx !== -1 && detailIdx !== -1) {
+      const banbeonIdx = row.findIndex(c => c.replace(/\s/g,'') === '반/번호');
+      const idIdx = row.findIndex(c => c.includes('학생개인번호') || c === '학번');
+      const gradeIdx = row.findIndex(c => c === '학년');
+      return { headerRow: r, name: nameIdx, detail: detailIdx, banbeon: banbeonIdx, studentId: idIdx, grade: gradeIdx };
+    }
+  }
+  return null;
+}
+
+// 학번 = 학년(1자리) + 반(2자리) + 번호(2자리). 학년을 인식하지 못했으면 '0'을 사용.
+function toStudentId(grade, ban, beon){
+  const g = grade || '0';
+  const banPad = String(ban).padStart(2, '0');
+  const beonPad = String(beon).padStart(2, '0');
+  return String(g) + banPad + beonPad;
+}
+
+// 한글은 3Byte, 영문자·공백·구두점 등은 1Byte로 계산되는 실제 UTF-8 바이트 길이
+function byteLength(str){
+  return new TextEncoder().encode(str || '').length;
+}
+
+function parseSeteukFile(fileName, rows){
+  const cols = findSeteukColumns(rows);
+  if (!cols || cols.banbeon === -1) return { rows: [], error: `'${fileName}': '반/번호', '성명', '세부능력 및 특기사항' 열을 찾을 수 없습니다.` };
+  const out = [];
+  for (let r = cols.headerRow + 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.every(c => cell(c) === '')) continue;
+    const bb = cell(row[cols.banbeon]);
+    const m = bb.match(/^(\d+)\s*\/\s*(\d+)$/);
+    if (!m) continue;
+    const ban = parseInt(m[1], 10), beon = parseInt(m[2], 10);
+    const grade = cols.grade !== -1 ? cell(row[cols.grade]) : '';
+    out.push({
+      file: fileName,
+      ban, beon,
+      grade,
+      hakbun: toStudentId(grade, ban, beon),
+      name: cell(row[cols.name]),
+      studentId: cols.studentId !== -1 ? cell(row[cols.studentId]) : '',
+      seteuk: cell(row[cols.detail]),
+    });
+  }
+  return { rows: out, error: null };
+}
+
+/* ---------- 원자료 파일 파싱 ---------- */
+// 원자료 파일의 실제 헤더 구조를 그대로 읽어 "대분류(그룹) → 하위 항목" 형태로 자동 구성한다.
+// 하드코딩된 항목명(주제/에세이/제출률 등)에 의존하지 않고, 파일에 적힌 텍스트를 그대로 사용한다.
+function detectRawStructure(rows){
+  let R = -1, idCol = -1, idColExact = true;
+
+  // 1순위: 헤더 텍스트가 정확히 '학번'인 열
+  for (let r = 0; r < Math.min(rows.length, 10); r++) {
+    const idx = rows[r].findIndex(c => cell(c) === '학번');
+    if (idx !== -1) { R = r; idCol = idx; idColExact = true; break; }
+  }
+  // 2순위: (설문지 응답 등) 헤더에 '학번'이라는 글자가 포함된 열 — 예: "01. [학생정보] 학번과 성명을 적어주세요."
+  if (R === -1) {
+    for (let r = 0; r < Math.min(rows.length, 10); r++) {
+      const idx = rows[r].findIndex(c => cell(c).includes('학번'));
+      if (idx !== -1) { R = r; idCol = idx; idColExact = false; break; }
+    }
+  }
+  if (R === -1) return null;
+
+  const headerTop = rows[R].map(cell);
+  const ncols = Math.max(headerTop.length, ...rows.slice(R, R + 3).map(rr => rr.length));
+  for (let i = headerTop.length; i < ncols; i++) headerTop[i] = '';
+
+  // 헤더 바로 다음 줄이 이미 데이터(학번 칸이 숫자)로 보이면 헤더가 1행, 아니면 2행(대분류+세부항목) 구조로 판단
+  const nextRow = (rows[R + 1] || []).map(cell);
+  const singleHeader = /^\d/.test(nextRow[idCol] || '');
+  const subRow = singleHeader ? new Array(ncols).fill('') : nextRow;
+  const dataStartRow = singleHeader ? R + 1 : R + 2;
+
+  // 대분류 텍스트를 오른쪽으로 이어붙이기(병합된 셀 때문에 빈 칸으로 남은 부분을 직전 값으로 채움)
+  const topFilled = [];
+  let last = '';
+  for (let i = 0; i < ncols; i++) { if (headerTop[i]) last = headerTop[i]; topFilled[i] = last; }
+
+  let nameCol = headerTop.findIndex(h => h === '이름' || h === '성명');
+  // 학번 열이 "학번과 성명을 적어주세요"처럼 이름까지 함께 받는 경우, 별도의 이름 열은 없는 것으로 취급
+  // (이름은 학번 값에서 함께 뽑아낸다 - parseRawFile 참고)
+  if (nameCol === -1 && !idColExact) {
+    // 그대로 -1 유지: 학번 칸의 값에서 이름을 추출할 것이므로 별도 열은 찾지 않는다.
+  }
+
+  const groups = [];
+  let i = 0;
+  while (i < ncols) {
+    if (i === idCol || i === nameCol) { i++; continue; }
+    const title = topFilled[i] || headerTop[i] || `열${i + 1}`;
+    const fields = [];
+    let j = i;
+    while (j < ncols && j !== idCol && j !== nameCol && (topFilled[j] || headerTop[j] || `열${j + 1}`) === title) {
+      fields.push({ colIdx: j, label: subRow[j] || '' });
+      j++;
+    }
+    if (fields.length > 1) {
+      fields.forEach((f, k) => { if (!f.label) f.label = `항목${k + 1}`; });
+    } else if (fields[0] && !fields[0].label) {
+      fields[0].label = title;
+    }
+    if (fields.length) groups.push({ title, fields });
+    i = j;
+  }
+
+  return { headerRow: R, dataStartRow, idCol, idColExact, nameCol, groups };
+}
+
+function parseBanBeonFromId(id){
+  id = String(id).trim();
+  if (id.length < 3) return null;
+  const ban = parseInt(id.slice(1, -2), 10);
+  const beon = parseInt(id.slice(-2), 10);
+  if (isNaN(ban) || isNaN(beon)) return null;
+  return { ban, beon };
+}
+
+function parseRawFile(fileName, rows){
+  const structure = detectRawStructure(rows);
+  if (!structure) return { map: new Map(), error: `'${fileName}': 원자료 파일에서 '학번' 열을 찾을 수 없습니다.`, structure: null };
+  const map = new Map();
+  for (let r = structure.dataStartRow; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.every(x => cell(x) === '')) continue;
+    const rawIdCell = cell(row[structure.idCol]);
+    if (!rawIdCell) continue;
+
+    // 학번 칸이 "학번과 성명"처럼 결합된 자유 응답인 경우, 앞의 숫자만 학번으로 쓰고 나머지는 이름으로 추정한다.
+    let idVal = rawIdCell, inlineName = '';
+    if (!structure.idColExact) {
+      const m = rawIdCell.match(/^(\d{4,6})\s*(.*)$/);
+      if (m) { idVal = m[1]; inlineName = m[2].trim(); }
+    }
+
+    const bb = parseBanBeonFromId(idVal);
+    if (!bb) continue;
+    const values = {}; // "그룹제목__항목라벨" -> 값
+    structure.groups.forEach(g => {
+      g.fields.forEach(f => {
+        values[g.title + '__' + f.label] = cell(row[f.colIdx]);
+      });
+    });
+    map.set(bb.ban + '_' + bb.beon, {
+      id: idVal,
+      file: fileName,
+      name: structure.nameCol !== -1 ? cell(row[structure.nameCol]) : inlineName,
+      values,
+    });
+  }
+  return { map, error: null, structure };
+}
+
+/* ============================================================
+   TEXT SIMILARITY (참고 점수)
+   ============================================================ */
+function normText(t){ return (t||'').replace(/[^0-9A-Za-z가-힣]/g, ''); }
+function bigrams(t){
+  const n = normText(t);
+  const set = new Set();
+  for (let i = 0; i < n.length - 1; i++) set.add(n.slice(i, i+2));
+  return set;
+}
+function coverage(queryBigrams, targetBigrams){
+  if (queryBigrams.size === 0) return null;
+  let hit = 0;
+  queryBigrams.forEach(b => { if (targetBigrams.has(b)) hit++; });
+  return Math.round((hit / queryBigrams.size) * 1000) / 1000;
+}
+
+const TITLE_RE = /['‘’]([^'‘’]{4,80})['‘’](?:을|를|이라는|라는)?\s*(?:주제로|주제)/;
+
+/* ============================================================
+   COMPARE
+   ============================================================ */
+compareBtn.addEventListener('click', runCompare);
+
+async function runCompare(){
+  fileErr.style.display = 'none';
+  statusBox.classList.add('show');
+  compareBtn.disabled = true;
+  resultSection.classList.remove('show');
+
+  try {
+    const parseErrors = [];
+    const dupWarnings = [];
+
+    const combinedRawMap = new Map();
+    globalRawGroups = [];
+    for (const f of rawFiles) {
+      statusText.textContent = `원자료 파일 읽는 중... (${f.name})`;
+      const rows = await readSheetAsArray(f);
+      const parsed = parseRawFile(f.name, rows);
+      if (parsed.error) parseErrors.push(parsed.error);
+      if (parsed.structure) {
+        parsed.structure.groups.forEach(g => {
+          let existing = globalRawGroups.find(gg => gg.title === g.title);
+          if (!existing) { existing = { title: g.title, fields: [] }; globalRawGroups.push(existing); }
+          g.fields.forEach(f2 => {
+            if (!existing.fields.some(ef => ef.label === f2.label)) existing.fields.push({ label: f2.label });
+          });
+        });
+      }
+      parsed.map.forEach((v, k) => {
+        if (combinedRawMap.has(k)) {
+          dupWarnings.push(`${k.replace('_','반 ')}번: '${combinedRawMap.get(k).file}'와(과) '${f.name}'에 동일한 반/번호(학번 ${combinedRawMap.get(k).id} / ${v.id})가 중복 존재 — 나중 파일 값으로 덮어씀`);
+        }
+        combinedRawMap.set(k, v);
+      });
+    }
+    if (combinedRawMap.size === 0) throw new Error('원자료 파일에서 학생 데이터를 하나도 인식하지 못했습니다.\n' + parseErrors.join('\n'));
+
+    let allSeteuk = [];
+    for (const f of seteukFiles) {
+      statusText.textContent = `세특 파일 읽는 중... (${f.name})`;
+      const rows = await readSheetAsArray(f);
+      const parsed = parseSeteukFile(f.name, rows);
+      if (parsed.error) parseErrors.push(parsed.error);
+      allSeteuk = allSeteuk.concat(parsed.rows);
+    }
+    if (allSeteuk.length === 0) throw new Error('세특 파일에서 학생 데이터를 하나도 인식하지 못했습니다.\n' + parseErrors.join('\n'));
+
+    statusText.textContent = '반/번호 매칭 및 비교 중...';
+    results = allSeteuk.map(s => buildResultRow(s, combinedRawMap));
+
+    const allWarnings = [...parseErrors, ...dupWarnings];
+    if (allWarnings.length) {
+      fileErr.style.display = 'block';
+      fileErr.textContent = allWarnings.join('\n');
+    }
+
+    renderSummary();
+    populateFileFilter();
+    sortKey = 'ref_score'; sortAsc = true; // 처음 결과를 펼칠 때는 유사도 순(낮은 점수=검토 우선)으로 기본 정렬
+    render();
+    resultSection.classList.add('show');
+    resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    fileErr.style.display = 'block';
+    fileErr.textContent = '오류: ' + (err.message || err);
+  } finally {
+    statusBox.classList.remove('show');
+    compareBtn.disabled = false;
+  }
+}
+
+function buildResultRow(s, rawMap){
+  const key = s.ban + '_' + s.beon;
+  const raw = rawMap.get(key);
+
+  if (!raw) {
+    return { ...s, category: 'MATCH_FAIL', ref_score: null, ref_score_type: null, ref_match_label: null, raw: null };
+  }
+  if (raw.name && s.name && raw.name !== s.name) {
+    return { ...s, category: 'NAME_MISMATCH', ref_score: null, ref_score_type: null, ref_match_label: null, raw };
+  }
+
+  // 원자료의 모든 항목(대분류에 상관없이) 중 실제로 내용이 있는 것만 후보로 삼는다.
+  const entries = Object.entries(raw.values || {}).filter(([, v]) => v && String(v).trim().length > 0);
+  const hasAnyContent = entries.some(([, v]) => String(v).trim().length > 5);
+
+  const text = s.seteuk;
+  let category, ref_score = null, ref_score_type = null, ref_match_label = null;
+
+  if (!hasAnyContent) {
+    category = 'NO_RAW';
+  } else {
+    const m = text.match(TITLE_RE);
+    if (m) {
+      // 세특에 인용된 '주제'가 원자료의 어떤 항목과 가장 비슷한지 전체 항목을 대상으로 찾는다.
+      const qb = bigrams(m[1]);
+      let best = -1, bestLabel = null;
+      entries.forEach(([k, v]) => {
+        const sc = coverage(qb, bigrams(v));
+        if (sc !== null && sc > best) { best = sc; bestLabel = k; }
+      });
+      ref_score = best >= 0 ? best : null;
+      ref_score_type = 'title';
+      ref_match_label = bestLabel;
+      category = (ref_score !== null && ref_score >= 0.5) ? 'MATCHED' : 'UNUSED';
+    } else {
+      // 인용된 주제 제목이 없으면 세특 전체 문장과 원자료 전체 항목을 통째로 비교하는 보조 지표를 계산한다.
+      const combinedRaw = entries.map(([, v]) => v).join(' ');
+      ref_score = coverage(bigrams(text), bigrams(combinedRaw));
+      ref_score_type = 'fulltext';
+      category = (ref_score !== null && ref_score >= 0.3) ? 'MATCHED' : 'UNUSED';
+    }
+  }
+
+  return { ...s, category, ref_score, ref_score_type, ref_match_label, raw };
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const catLabel = {
+  MATCHED: '<span class="badge badge-ok">정상 매칭</span>',
+  UNUSED: '<span class="badge badge-review">검토 필요</span>',
+  NO_RAW: '<span class="badge badge-norow">원자료 없음</span>',
+  MATCH_FAIL: '<span class="badge badge-fail">매칭 실패</span>',
+  NAME_MISMATCH: '<span class="badge badge-review">이름 불일치</span>',
+};
+
+function renderSummary(){
+  const counts = { MATCHED:0, UNUSED:0, NO_RAW:0, MATCH_FAIL:0, NAME_MISMATCH:0 };
+  results.forEach(r => counts[r.category]++);
+  document.getElementById('resTotal').textContent = results.length;
+  document.getElementById('resMatched').textContent = counts.MATCHED;
+  document.getElementById('resUnused').textContent = counts.UNUSED + counts.NAME_MISMATCH;
+  document.getElementById('resFail').textContent = counts.MATCH_FAIL;
+  document.getElementById('resNorow').textContent = counts.NO_RAW;
+}
+
+function populateFileFilter(){
+  const sel = document.getElementById('fileFilter');
+  sel.innerHTML = '<option value="">전체 파일</option>';
+  const files = [...new Set(results.map(r => r.file))];
+  files.forEach(f => { const o = document.createElement('option'); o.value = f; o.textContent = f; sel.appendChild(o); });
+}
+
+function currentFiltered(){
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const f = document.getElementById('fileFilter').value;
+  const c = document.getElementById('catFilter').value;
+  let rows = results.filter(r => {
+    if (q) {
+      const nameMatch = r.name.toLowerCase().includes(q);
+      const hakbunMatch = (r.hakbun || '').toLowerCase().includes(q);
+      if (!nameMatch && !hakbunMatch) return false;
+    }
+    if (f && r.file !== f) return false;
+    if (c && r.category !== c) return false;
+    return true;
+  });
+  const rank = { NAME_MISMATCH:0, MATCH_FAIL:1, UNUSED:2, MATCHED:3, NO_RAW:4 };
+  if (sortKey) {
+    rows = rows.slice().sort((a,b) => {
+      let av = a[sortKey], bv = b[sortKey];
+      if (sortKey === 'ref_score') { av = av==null?-1:av; bv = bv==null?-1:bv; }
+      if (av < bv) return sortAsc ? -1 : 1;
+      if (av > bv) return sortAsc ? 1 : -1;
+      return 0;
+    });
+  } else {
+    rows = rows.slice().sort((a,b) => rank[a.category]-rank[b.category] || a.ban-b.ban || a.beon-b.beon);
+  }
+  return rows;
+}
+
+function render(){
+  const rows = currentFiltered();
+  document.getElementById('tbody').innerHTML = rows.map(r => {
+    const idx = results.indexOf(r);
+    let score = '-';
+    if (r.ref_score !== null && r.ref_score !== undefined) {
+      score = r.ref_score_type === 'fulltext' ? `${r.ref_score} <span style="color:var(--ink-soft);font-size:11px;">(전체비교)</span>` : String(r.ref_score);
+    }
+    return `<tr onclick="openModal(${idx})">
+      <td class="num">${escapeHtml(r.hakbun || '')}</td><td>${r.ban}</td><td>${r.beon}</td><td class="name-cell">${escapeHtml(r.name)}</td>
+      <td>${catLabel[r.category]}</td>
+      <td>${score}</td>
+      <td class="preview-cell">${escapeHtml((r.seteuk||'').slice(0,50))}...</td>
+    </tr>`;
+  }).join('');
+  updateSortButtonsUI();
+}
+
+function updateSortButtonsUI(){
+  document.getElementById('sortDefaultBtn').classList.toggle('active', sortKey === 'hakbun');
+  document.getElementById('sortScoreBtn').classList.toggle('active', sortKey === 'ref_score');
+}
+
+document.getElementById('searchBox').addEventListener('input', render);
+document.getElementById('fileFilter').addEventListener('change', render);
+document.getElementById('catFilter').addEventListener('change', render);
+document.querySelectorAll('th[data-key]').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.key;
+    if (sortKey === k) sortAsc = !sortAsc; else { sortKey = k; sortAsc = true; }
+    render();
+  });
+});
+document.getElementById('sortDefaultBtn').addEventListener('click', () => {
+  sortKey = 'hakbun'; sortAsc = true;
+  render();
+});
+document.getElementById('sortScoreBtn').addEventListener('click', () => {
+  if (sortKey === 'ref_score') sortAsc = !sortAsc;
+  else { sortKey = 'ref_score'; sortAsc = true; } // 오름차순(낮은 점수=의심 사례 우선) 기본
+  render();
+});
+
+function buildStudentCardHTML(idx, forPdf){
+  const d = results[idx];
+  const r = d.raw;
+
+  let rawSections;
+  if (r) {
+    rawSections = globalRawGroups.map((g, gi) => {
+      const rowsHtml = g.fields.map(f => {
+        const val = r.values ? r.values[g.title + '__' + f.label] : '';
+        return `<b>[${escapeHtml(f.label)}]</b> ${val ? escapeHtml(val) : '-'}`;
+      }).join('\n\n');
+      const hasAny = g.fields.some(f => (r.values && r.values[g.title + '__' + f.label] || '').trim());
+      const box = hasAny
+        ? `<div class="m-box">${rowsHtml}</div>`
+        : `<div class="m-box" style="color:var(--ink-soft)">제출 내역이 없습니다.</div>`;
+      return `<div class="m-section"><h3>원자료${gi + 1} : ${escapeHtml(g.title)}</h3>${box}</div>`;
+    }).join('');
+    if (!globalRawGroups.length) {
+      rawSections = `<div class="m-box" style="color:var(--ink-soft)">인식된 원자료 항목이 없습니다.</div>`;
+    }
+  } else {
+    rawSections = `<div class="m-box" style="color:var(--rose)">원자료에서 ${d.ban}반 ${d.beon}번 학생을 찾지 못했습니다. 원자료 파일의 학번 표기(예: 20101 = 2학년 1반 1번)를 확인해주세요.</div>`;
+  }
+
+  const seteukBytes = byteLength(d.seteuk);
+  const matchInfo = d.ref_match_label ? ` · 최고 일치 항목: ${escapeHtml(d.ref_match_label.replace('__', ' - '))}` : '';
+  const actionRow = forPdf ? '' : `<div class="field-row" style="margin-top:0;">
+      <button class="btn ghost sm" type="button" onclick="exportStudentExcel(${idx})">📥 이 학생 정보 엑셀로 저장</button>
+    </div>`;
+
+  return `
+    <h2>${escapeHtml(d.name)} <span style="font-weight:400;color:var(--ink-soft);font-size:13px;">(${d.ban}반 ${d.beon}번 · 학번 ${escapeHtml(d.hakbun || '-')} · ${escapeHtml(d.file)}${d.studentId ? ' · 학생개인번호 '+escapeHtml(d.studentId) : ''})</span></h2>
+    <div class="meta">${catLabel[d.category]} ${d.ref_score!=null ? ' · 유사도 점수 '+d.ref_score+(d.ref_score_type==='fulltext' ? ' (제목 인용 없음 → 세특 전체 문장 vs 원자료 전체 비교)' : ' (인용된 주제 제목 기준)'+matchInfo) : ''} ${r && r.name && r.name !== d.name ? ' · 원자료 성명: '+escapeHtml(r.name) : ''}</div>
+    ${actionRow}
+    <div class="m-section"><h3 class="m-h3-major">세특 전문 (${seteukBytes}Byte)</h3><div class="m-box m-box-seteuk">${escapeHtml(d.seteuk)}</div></div>
+    <div class="m-section"><h3 class="m-h3-major">원자료 (raw data)</h3></div>
+    ${rawSections}
+  `;
+}
+
+function openModal(idx){
+  document.getElementById('modalContent').innerHTML = buildStudentCardHTML(idx, false);
+  document.getElementById('modalBg').classList.add('show');
+}
+
+/* ============================================================
+   엑셀 내보내기 (원자료 파일에 실제로 존재하는 항목에 따라
+   열 구성이 동적으로 달라지는 2행 병합 헤더 구조)
+   ============================================================ */
+const catTextMap = { MATCHED:'정상 매칭', UNUSED:'검토 필요', NO_RAW:'원자료 없음', MATCH_FAIL:'매칭 실패', NAME_MISMATCH:'이름 불일치' };
+
+function buildExcelColumns(){
+  const groups = globalRawGroups.map((g, gi) => ({
+    title: `원자료${gi + 1} : ${g.title}`,
+    fields: g.fields.map(f => ({ type: 'raw', valueKey: g.title + '__' + f.label, label: f.label })),
+  }));
+
+  const fixed = [
+    { type:'fixed', key:'seq', label:'항목' },
+    { type:'fixed', key:'hakbun', label:'학번' },
+    { type:'fixed', key:'grade', label:'학년' },
+    { type:'fixed', key:'ban', label:'반' },
+    { type:'fixed', key:'beon', label:'번호' },
+    { type:'fixed', key:'name', label:'이름' },
+    { type:'fixed', key:'status', label:'상태' },
+    { type:'fixed', key:'ref_score', label:'유사도 점수' },
+    { type:'fixed', key:'ref_score_type', label:'유사도 점수 계산 방식' },
+    { type:'fixed', key:'seteuk', label:'세특전문' },
+    { type:'fixed', key:'seteuk_bytes', label:'세특 바이트수' },
+  ];
+
+  return { fixed, groups };
+}
+
+function getExcelCellValue(rec, field, seq){
+  if (field.type === 'fixed') {
+    switch (field.key) {
+      case 'seq': return seq;
+      case 'hakbun': return rec.hakbun || '';
+      case 'grade': return rec.grade || '';
+      case 'ban': return rec.ban;
+      case 'beon': return rec.beon;
+      case 'name': return rec.name;
+      case 'status': return catTextMap[rec.category] || '';
+      case 'ref_score': return rec.ref_score == null ? '' : rec.ref_score;
+      case 'ref_score_type': return rec.ref_score_type === 'fulltext' ? '세특 전체 문장 vs 원자료 전체 비교' : (rec.ref_score_type === 'title' ? '인용된 주제 제목 기준' : '');
+      case 'seteuk': return rec.seteuk || '';
+      case 'seteuk_bytes': return byteLength(rec.seteuk);
+    }
+    return '';
+  }
+  if (field.type === 'raw') {
+    return (rec.raw && rec.raw.values && rec.raw.values[field.valueKey]) || '';
+  }
+  return '';
+}
+
+function buildExcelWorkbook(list){
+  const { fixed, groups } = buildExcelColumns();
+  const headerTop = [];
+  const headerSub = [];
+  const merges = [];
+  const allFields = [];
+  let col = 0;
+
+  fixed.forEach(f => {
+    headerTop.push(f.label);
+    headerSub.push('');
+    merges.push({ s:{ r:0, c:col }, e:{ r:1, c:col } });
+    allFields.push(f);
+    col++;
+  });
+
+  groups.forEach(g => {
+    const startCol = col;
+    g.fields.forEach(f => {
+      headerTop.push(g.title);
+      headerSub.push(f.label);
+      allFields.push(f);
+      col++;
+    });
+    if (g.fields.length > 1) {
+      merges.push({ s:{ r:0, c:startCol }, e:{ r:0, c:col-1 } });
+    }
+  });
+
+  const aoa = [headerTop, headerSub];
+  list.forEach((rec, i) => {
+    aoa.push(allFields.map(f => getExcelCellValue(rec, f, i + 1)));
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = merges;
+  ws['!cols'] = allFields.map(() => ({ wch: 18 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '세특-원자료 비교결과');
+  return wb;
+}
+
+function exportStudentExcel(idx){
+  const d = results[idx];
+  const wb = buildExcelWorkbook([d]);
+  XLSX.writeFile(wb, `${d.ban}반${d.beon}번_${d.name}_세특비교.xlsx`);
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('show'); }
+document.getElementById('modalBg').addEventListener('click', (e) => { if (e.target.id === 'modalBg') closeModal(); });
+
+document.getElementById('csvBtn').addEventListener('click', () => {
+  const rows = currentFiltered();
+  const wb = buildExcelWorkbook(rows);
+  XLSX.writeFile(wb, '세특_원자료_비교결과.xlsx');
+});
+
+const allPdfBtn = document.getElementById('allPdfBtn');
+const allPdfHint = document.getElementById('allPdfHint');
+const allPdfHintDefault = allPdfHint.textContent;
+const csvExportBtn = document.getElementById('csvBtn');
+const PDF_CARD_WIDTH_PT = 560;
+
+allPdfBtn.addEventListener('click', async () => {
+  const rows = currentFiltered();
+  if (!rows.length) return;
+  if (typeof html2canvas === 'undefined' || !window.jspdf || typeof JSZip === 'undefined') {
+    alert('PDF 생성 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+
+  allPdfBtn.disabled = true;
+  csvExportBtn.disabled = true;
+
+  const offscreen = document.createElement('div');
+  offscreen.style.position = 'fixed';
+  offscreen.style.top = '-99999px';
+  offscreen.style.left = '0';
+  offscreen.style.width = '760px';
+  offscreen.style.background = '#fff';
+  offscreen.style.padding = '32px';
+  document.body.appendChild(offscreen);
+
+  const zip = new JSZip();
+  const usedNames = new Set();
+  let okCount = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const rec = rows[i];
+    const idx = results.indexOf(rec);
+    allPdfHint.textContent = `PDF 생성 중... (${i + 1}/${rows.length}) ${rec.ban}반 ${rec.beon}번 ${rec.name}`;
+    offscreen.innerHTML = buildStudentCardHTML(idx, true);
+    await new Promise(r => requestAnimationFrame(r));
+    try {
+      const canvas = await html2canvas(offscreen, { scale: 2, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const pageHeightPt = PDF_CARD_WIDTH_PT * (canvas.height / canvas.width);
+      const doc = new jsPDF({ unit: 'pt', format: [PDF_CARD_WIDTH_PT, pageHeightPt] });
+      doc.addImage(imgData, 'JPEG', 0, 0, PDF_CARD_WIDTH_PT, pageHeightPt);
+      const pdfBlob = doc.output('blob');
+      let fname = `${rec.hakbun}_${rec.name}_세특비교.pdf`;
+      let dupN = 2;
+      while (usedNames.has(fname)) { fname = `${rec.hakbun}_${rec.name}_세특비교 (${dupN}).pdf`; dupN++; }
+      usedNames.add(fname);
+      zip.file(fname, pdfBlob);
+      okCount++;
+    } catch (err) {
+      console.error('PDF 생성 실패:', rec.ban, rec.beon, rec.name, err);
+    }
+  }
+
+  offscreen.remove();
+  allPdfHint.textContent = `압축 파일(zip) 만드는 중...`;
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `세특_원자료_비교결과_전체_${rows.length}명.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+  allPdfHint.textContent = `완료되었습니다. 총 ${rows.length}명 중 ${okCount}개의 PDF가 압축 파일(zip) 1개로 다운로드되었습니다. 압축을 풀면 학생별 PDF 파일을 각각 확인할 수 있어요.`;
+  allPdfBtn.disabled = false;
+  csvExportBtn.disabled = false;
+  setTimeout(() => { allPdfHint.textContent = allPdfHintDefault; }, 6000);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>배드민턴 모임 친목 저녁 식사 신청</title>
+  <style>
+    :root {
+      --bg: #eef2f7;
+      --card: #ffffff;
+      --text: #1a2332;
+      --text-soft: #5c6778;
+      --accent: #1f7a6e;
+      --accent-dark: #155a51;
+      --accent-soft: #e6f4f2;
+      --line: #dde3ea;
+      --success: #1f7a6e;
+      --error: #c0392b;
+      --shadow: 0 12px 32px rgba(21, 37, 64, 0.08);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, #d9ebe8 0%, transparent 42%),
+        var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      line-height: 1.65;
+      padding: 24px 16px 40px;
+    }
+
+    .page {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-bottom: 14px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-dark);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 28px 24px 22px;
+      background: linear-gradient(145deg, #1f7a6e 0%, #2a9588 100%);
+      color: #fff;
+    }
+
+    .card-header h1 {
+      margin: 0 0 8px;
+      font-size: clamp(22px, 5vw, 28px);
+      line-height: 1.35;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .card-header p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 15px;
+    }
+
+    .card-body {
+      padding: 24px;
+    }
+
+    .notice p {
+      margin: 0 0 14px;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .notice p:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-box {
+      margin: 22px 0 0;
+      padding: 18px;
+      border-radius: 14px;
+      background: #f7faf9;
+      border: 1px solid #e3ecea;
+    }
+
+    .info-item + .info-item {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px dashed #d8e3df;
+    }
+
+    .info-label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--accent-dark);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .info-value {
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .divider {
+      height: 1px;
+      margin: 24px 0;
+      background: var(--line);
+    }
+
+    .form-title {
+      margin: 0 0 8px;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .form-desc {
+      margin: 0 0 18px;
+      color: var(--text-soft);
+      font-size: 14px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--text);
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(31, 122, 110, 0.12);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 16px;
+      padding: 15px 18px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--accent-dark);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .message {
+      display: none;
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .message.show {
+      display: block;
+    }
+
+    .message.success {
+      background: var(--accent-soft);
+      color: var(--success);
+      border: 1px solid #c7e5df;
+    }
+
+    .message.error {
+      background: #fdecea;
+      color: var(--error);
+      border: 1px solid #f5c6cb;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--text-soft);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .setup-warning {
+      display: none;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #fff8e6;
+      color: #8a5b00;
+      border: 1px solid #f2d98b;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .setup-warning.show {
+      display: block;
+    }
+
+    .venue-photos {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .venue-photos img {
+      width: 100%;
+      height: 240px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+    }
+
+    .venue-photos img:first-child {
+      object-position: center top;
+    }
+
+    .address-link {
+      display: block;
+      margin-top: 8px;
+      color: var(--accent-dark);
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      word-break: break-all;
+    }
+
+    .address-link:hover {
+      text-decoration: underline;
+    }
+
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="setupWarning" class="setup-warning" role="status"></div>
+
+    <article class="card">
+      <header class="card-header">
+        <h1>배드민턴 모임 친목 저녁 식사 안내</h1>
+        <p>참석 가능하신 분은 아래에서 신청해 주세요.</p>
+      </header>
+
+      <section class="card-body">
+        <div class="notice">
+          <p>한 학기 동안 배드민턴 모임에 함께해 주신 선생님들, 그리고 앞으로 함께하실 선생님들과 친목을 다지는 자리를 마련했습니다.</p>
+
+          <p>회원 여부와 관계없이 관심 있으신 분은 누구나 환영합니다. 친하신 분들과 함께오세요. 2학기에도 건강하고 즐겁게 함께 운동해요.</p>
+
+          <div class="info-box">
+            <div class="info-item">
+              <span class="info-label">■ 일시</span>
+              <span class="info-value">7월 16일(목) 17:30</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">■ 장소</span>
+              <span class="info-value">서울 삼겹살 신봉점</span>
+              <div class="venue-photos">
+                <img src="image1.jpeg" alt="서울삼겹살 신봉점 외관">
+                <img src="image2.jpeg" alt="서울삼겹살 신봉점 음식">
+              </div>
+            </div>
+            <div class="info-item">
+              <span class="info-label">■ 주소 안내</span>
+              <span class="info-value">경기도 용인시 수지구 신봉1로 157 파크프라자 1층 128·129호</span>
+              <a class="address-link" href="https://naver.me/GQ1lDDve" target="_blank" rel="noopener noreferrer">https://naver.me/GQ1lDDve</a>
+            </div>
+          </div>
+
+          <p style="margin-top: 18px;">원활한 예약을 위해 참석 가능하신 분은 미리 신청 부탁드립니다.</p>
+        </div>
+
+        <div class="divider"></div>
+
+        <form id="rsvpForm">
+          <h2 class="form-title">참석하실 분께서는 성명을 입력하고 제출 버튼을 눌러 주세요.</h2>
+          <p class="form-desc"></p>
+
+          <label for="name">성명</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            placeholder="예) 홍길동"
+            autocomplete="name"
+            maxlength="50"
+            required
+          >
+
+          <button type="submit" id="submitBtn">제출</button>
+
+          <div id="message" class="message" role="alert" aria-live="polite"></div>
+        </form>
+      </section>
+    </article>
+
+  </main>
+
+  <script>
+    // Google Apps Script Web App 배포 URL을 아래에 붙여 넣으세요.
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWRrB9kXj4y7ykh591OsiTl1TZDR9MLepipQoodYZAdXgLn-5Juw3ltVgQY-K2Zzcw/exec';
+
+    const form = document.getElementById('rsvpForm');
+    const nameInput = document.getElementById('name');
+    const submitBtn = document.getElementById('submitBtn');
+    const messageEl = document.getElementById('message');
+    const setupWarningEl = document.getElementById('setupWarning');
+
+    function showMessage(text, type) {
+      messageEl.textContent = text;
+      messageEl.className = 'message show ' + type;
+    }
+
+    function hideMessage() {
+      messageEl.textContent = '';
+      messageEl.className = 'message';
+    }
+
+    function showSetupWarning(text) {
+      setupWarningEl.textContent = text;
+      setupWarningEl.className = 'setup-warning show';
+    }
+
+    function hideSetupWarning() {
+      setupWarningEl.textContent = '';
+      setupWarningEl.className = 'setup-warning';
+    }
+
+    function createCallbackName() {
+      return 'rsvpCb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    }
+
+    function callJsonp(params) {
+      return new Promise(function (resolve, reject) {
+        var callbackName = createCallbackName();
+        var timeoutId = setTimeout(function () {
+          cleanup();
+          reject(new Error('timeout'));
+        }, 15000);
+        var script = document.createElement('script');
+
+        function cleanup() {
+          clearTimeout(timeoutId);
+          delete window[callbackName];
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+        }
+
+        window[callbackName] = function (result) {
+          cleanup();
+          resolve(result);
+        };
+
+        var query = new URLSearchParams(params);
+        query.set('callback', callbackName);
+        script.src = APPS_SCRIPT_URL + '?' + query.toString();
+        script.onerror = function () {
+          cleanup();
+          reject(new Error('script error'));
+        };
+        document.body.appendChild(script);
+      });
+    }
+
+    async function checkApiReady() {
+      if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+        showSetupWarning('Apps Script URL이 설정되지 않았습니다. index.html 상단의 APPS_SCRIPT_URL을 입력해 주세요.');
+        return;
+      }
+
+      try {
+        const result = await callJsonp({ action: 'ping' });
+        if (result && result.ok) {
+          hideSetupWarning();
+          return;
+        }
+        showSetupWarning('Apps Script 연결은 되었지만 응답 형식이 맞지 않습니다. Code.gs를 새로 배포해 주세요.');
+      } catch (error) {
+        showSetupWarning('Apps Script API가 준비되지 않았습니다. Code.gs를 붙여넣고 새 배포한 뒤 APPS_SCRIPT_URL을 확인해 주세요.');
+      }
+    }
+
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      hideMessage();
+
+      const name = nameInput.value.trim();
+
+      if (!name) {
+        showMessage('성명을 입력해 주세요.', 'error');
+        nameInput.focus();
+        return;
+      }
+
+      if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+        showMessage('Apps Script URL이 설정되지 않았습니다.', 'error');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '제출 중...';
+
+      try {
+        const result = await callJsonp({ name: name });
+
+        if (result.ok) {
+          showMessage(result.message || '참석 신청이 완료되었습니다.', 'success');
+          form.reset();
+          hideSetupWarning();
+        } else {
+          showMessage(result.message || '이미 신청하셨습니다.', 'error');
+        }
+      } catch (error) {
+        showMessage('전송에 실패했습니다. Apps Script에 Code.gs를 붙여넣고 새 배포했는지 확인해 주세요.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '제출';
+      }
+    });
+
+    checkApiReady();
+  </script>
+</body>
+</html>
