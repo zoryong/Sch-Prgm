@@ -279,6 +279,114 @@
       text-decoration: underline;
     }
 
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(17, 28, 45, 0.55);
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 460px;
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: 0 24px 60px rgba(21, 37, 64, 0.28);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 20px 22px 16px;
+      background: linear-gradient(145deg, #1f7a6e 0%, #2a9588 100%);
+      color: #fff;
+    }
+
+    .modal-header h2 {
+      margin: 0 0 4px;
+      font-size: 19px;
+      font-weight: 800;
+    }
+
+    .modal-header p {
+      margin: 0;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .modal-body {
+      padding: 20px 22px 22px;
+    }
+
+    .signer-name {
+      margin: 0 0 12px;
+      font-size: 15px;
+      color: var(--text-soft);
+    }
+
+    .signer-name strong {
+      color: var(--text);
+      font-weight: 800;
+    }
+
+    .signature-wrap {
+      position: relative;
+      border: 2px dashed var(--line);
+      border-radius: 12px;
+      background: #fbfdfc;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    #signatureCanvas {
+      display: block;
+      width: 100%;
+      height: 200px;
+      cursor: crosshair;
+    }
+
+    .signature-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #b3bfcc;
+      font-size: 15px;
+      font-weight: 600;
+      pointer-events: none;
+    }
+
+    .signature-hint.hidden {
+      display: none;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .modal-actions button {
+      margin-top: 0;
+    }
+
+    .btn-secondary {
+      background: #eef2f7;
+      color: var(--text);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #e2e8f0;
+    }
+
   </style>
 </head>
 <body>
@@ -346,6 +454,27 @@
 
   </main>
 
+  <div id="signatureModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="signatureTitle">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="signatureTitle">전자 서명</h2>
+        <p>아래 칸에 마우스 또는 손가락으로 서명해 주세요.</p>
+      </div>
+      <div class="modal-body">
+        <p class="signer-name">신청자: <strong id="signerName"></strong></p>
+        <div class="signature-wrap">
+          <canvas id="signatureCanvas"></canvas>
+          <div id="signatureHint" class="signature-hint">여기에 서명</div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="clearSignatureBtn" class="btn-secondary">다시 그리기</button>
+          <button type="button" id="cancelSignatureBtn" class="btn-secondary">취소</button>
+          <button type="button" id="confirmSignatureBtn">서명 후 제출</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Google Apps Script Web App 배포 URL을 아래에 붙여 넣으세요.
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWRrB9kXj4y7ykh591OsiTl1TZDR9MLepipQoodYZAdXgLn-5Juw3ltVgQY-K2Zzcw/exec';
@@ -355,6 +484,16 @@
     const submitBtn = document.getElementById('submitBtn');
     const messageEl = document.getElementById('message');
     const setupWarningEl = document.getElementById('setupWarning');
+
+    const signatureModal = document.getElementById('signatureModal');
+    const signerNameEl = document.getElementById('signerName');
+    const canvas = document.getElementById('signatureCanvas');
+    const signatureHint = document.getElementById('signatureHint');
+    const clearSignatureBtn = document.getElementById('clearSignatureBtn');
+    const cancelSignatureBtn = document.getElementById('cancelSignatureBtn');
+    const confirmSignatureBtn = document.getElementById('confirmSignatureBtn');
+
+    const NOT_CONFIGURED = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
 
     function showMessage(text, type) {
       messageEl.textContent = text;
@@ -376,51 +515,25 @@
       setupWarningEl.className = 'setup-warning';
     }
 
-    function createCallbackName() {
-      return 'rsvpCb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
-    }
-
-    function callJsonp(params) {
-      return new Promise(function (resolve, reject) {
-        var callbackName = createCallbackName();
-        var timeoutId = setTimeout(function () {
-          cleanup();
-          reject(new Error('timeout'));
-        }, 15000);
-        var script = document.createElement('script');
-
-        function cleanup() {
-          clearTimeout(timeoutId);
-          delete window[callbackName];
-          if (script.parentNode) {
-            script.parentNode.removeChild(script);
-          }
-        }
-
-        window[callbackName] = function (result) {
-          cleanup();
-          resolve(result);
-        };
-
-        var query = new URLSearchParams(params);
-        query.set('callback', callbackName);
-        script.src = APPS_SCRIPT_URL + '?' + query.toString();
-        script.onerror = function () {
-          cleanup();
-          reject(new Error('script error'));
-        };
-        document.body.appendChild(script);
+    // Apps Script Web App은 text/plain으로 보내면 CORS preflight를 피할 수 있습니다.
+    async function callApi(payload) {
+      const response = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+        redirect: 'follow'
       });
+      return response.json();
     }
 
     async function checkApiReady() {
-      if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+      if (APPS_SCRIPT_URL === NOT_CONFIGURED) {
         showSetupWarning('Apps Script URL이 설정되지 않았습니다. index.html 상단의 APPS_SCRIPT_URL을 입력해 주세요.');
         return;
       }
 
       try {
-        const result = await callJsonp({ action: 'ping' });
+        const result = await callApi({ action: 'ping' });
         if (result && result.ok) {
           hideSetupWarning();
           return;
@@ -431,7 +544,133 @@
       }
     }
 
-    form.addEventListener('submit', async function (event) {
+    /* ===== 서명 캔버스 ===== */
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+    let hasSignature = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    function setupCanvas() {
+      const ratio = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * ratio;
+      canvas.height = rect.height * ratio;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#1a2332';
+    }
+
+    function getPos(event) {
+      const rect = canvas.getBoundingClientRect();
+      const point = event.touches ? event.touches[0] : event;
+      return {
+        x: point.clientX - rect.left,
+        y: point.clientY - rect.top
+      };
+    }
+
+    function startDraw(event) {
+      event.preventDefault();
+      drawing = true;
+      const pos = getPos(event);
+      lastX = pos.x;
+      lastY = pos.y;
+      if (!hasSignature) {
+        hasSignature = true;
+        signatureHint.classList.add('hidden');
+      }
+    }
+
+    function moveDraw(event) {
+      if (!drawing) return;
+      event.preventDefault();
+      const pos = getPos(event);
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastX = pos.x;
+      lastY = pos.y;
+    }
+
+    function endDraw() {
+      drawing = false;
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', moveDraw);
+    window.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', moveDraw, { passive: false });
+    canvas.addEventListener('touchend', endDraw);
+
+    function clearSignature() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hasSignature = false;
+      signatureHint.classList.remove('hidden');
+    }
+
+    function openSignatureModal(name) {
+      signerNameEl.textContent = name;
+      signatureModal.classList.add('show');
+      // 모달이 표시된 뒤 실제 크기로 캔버스 초기화
+      requestAnimationFrame(function () {
+        setupCanvas();
+        clearSignature();
+      });
+    }
+
+    function closeSignatureModal() {
+      signatureModal.classList.remove('show');
+    }
+
+    clearSignatureBtn.addEventListener('click', clearSignature);
+
+    cancelSignatureBtn.addEventListener('click', function () {
+      closeSignatureModal();
+    });
+
+    async function submitRsvp(name, signature) {
+      submitBtn.disabled = true;
+      confirmSignatureBtn.disabled = true;
+      confirmSignatureBtn.textContent = '제출 중...';
+
+      try {
+        const result = await callApi({ name: name, signature: signature });
+
+        if (result.ok) {
+          closeSignatureModal();
+          showMessage(result.message || '참석 신청이 완료되었습니다.', 'success');
+          form.reset();
+          hideSetupWarning();
+        } else {
+          showMessage(result.message || '이미 신청하셨습니다.', 'error');
+          closeSignatureModal();
+        }
+      } catch (error) {
+        showMessage('전송에 실패했습니다. Apps Script에 Code.gs를 붙여넣고 새 배포했는지 확인해 주세요.', 'error');
+        closeSignatureModal();
+      } finally {
+        submitBtn.disabled = false;
+        confirmSignatureBtn.disabled = false;
+        confirmSignatureBtn.textContent = '서명 후 제출';
+      }
+    }
+
+    confirmSignatureBtn.addEventListener('click', function () {
+      if (!hasSignature) {
+        alert('서명을 입력해 주세요.');
+        return;
+      }
+      const name = nameInput.value.trim();
+      const signature = canvas.toDataURL('image/png');
+      submitRsvp(name, signature);
+    });
+
+    form.addEventListener('submit', function (event) {
       event.preventDefault();
       hideMessage();
 
@@ -443,30 +682,12 @@
         return;
       }
 
-      if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+      if (APPS_SCRIPT_URL === NOT_CONFIGURED) {
         showMessage('Apps Script URL이 설정되지 않았습니다.', 'error');
         return;
       }
 
-      submitBtn.disabled = true;
-      submitBtn.textContent = '제출 중...';
-
-      try {
-        const result = await callJsonp({ name: name });
-
-        if (result.ok) {
-          showMessage(result.message || '참석 신청이 완료되었습니다.', 'success');
-          form.reset();
-          hideSetupWarning();
-        } else {
-          showMessage(result.message || '이미 신청하셨습니다.', 'error');
-        }
-      } catch (error) {
-        showMessage('전송에 실패했습니다. Apps Script에 Code.gs를 붙여넣고 새 배포했는지 확인해 주세요.', 'error');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '제출';
-      }
+      openSignatureModal(name);
     });
 
     checkApiReady();
