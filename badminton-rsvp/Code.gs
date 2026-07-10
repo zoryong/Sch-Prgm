@@ -2,11 +2,9 @@
  * 배드민턴 모임 참석 신청 Google Apps Script
  *
  * 스프레드시트 1행 헤더: 제출시간 | 성명 | 서명이미지
- * 서명 이미지는 스프레드시트와 같은 Drive 폴더 안의 '배드민턴서명' 하위 폴더에 PNG로 저장되고,
- * 시트에는 파일 링크가 기록됩니다.
+ * 서명 이미지는 스프레드시트와 같은 Drive 폴더 안에, 스프레드시트와 동일한 이름의
+ * 하위 폴더에 PNG로 저장되고, 시트에는 파일 링크가 기록됩니다.
  */
-
-var SIGNATURE_FOLDER_NAME = '배드민턴서명';
 
 function doPost(e) {
   try {
@@ -94,27 +92,28 @@ function saveSignature(name, signature) {
 }
 
 /**
- * 스프레드시트가 있는 Drive 폴더 안에 '배드민턴서명' 하위 폴더를 찾거나 만듭니다.
+ * 스프레드시트가 있는 Drive 폴더 안에, 스프레드시트와 같은 이름의 하위 폴더를 찾거나 만듭니다.
  */
 function getOrCreateSignatureFolder() {
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var folderName = spreadsheet.getName();
   var spreadsheetFile = DriveApp.getFileById(spreadsheet.getId());
   var parents = spreadsheetFile.getParents();
 
   if (!parents.hasNext()) {
-    var rootFolders = DriveApp.getFoldersByName(SIGNATURE_FOLDER_NAME);
+    var rootFolders = DriveApp.getFoldersByName(folderName);
     if (rootFolders.hasNext()) {
       return rootFolders.next();
     }
-    return DriveApp.createFolder(SIGNATURE_FOLDER_NAME);
+    return DriveApp.createFolder(folderName);
   }
 
   var parentFolder = parents.next();
-  var folders = parentFolder.getFoldersByName(SIGNATURE_FOLDER_NAME);
+  var folders = parentFolder.getFoldersByName(folderName);
   if (folders.hasNext()) {
     return folders.next();
   }
-  return parentFolder.createFolder(SIGNATURE_FOLDER_NAME);
+  return parentFolder.createFolder(folderName);
 }
 
 function formatTimestamp(date) {
