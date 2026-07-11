@@ -547,7 +547,8 @@
       }
 
       try {
-        const result = await callApi({ action: 'ping' });
+        const response = await fetch(APPS_SCRIPT_URL + '?action=ping', { redirect: 'follow' });
+        const result = await response.json();
         if (result && result.ok) {
           hideSetupWarning();
           return;
