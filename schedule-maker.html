@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스케줄표 생성기</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<!-- xlsx-js-style: 셀 서식(색/글꼴/병합)까지 그대로 내보내기 가능한 SheetJS 포크 -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<!-- PDF 내보내기(브라우저 다운로드): html2canvas + jsPDF -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<style>
+:root{
+  --ink:#1B2430; --ink-soft:#57616F; --line:#E2E6EB; --paper:#F6F7F9; --card:#FFF;
+  --navy:#213863; --navy-deep:#152540; --teal:#0F8A82; --teal-soft:#E3F4F1;
+  --amber:#C8791C; --amber-soft:#FBF0DF;
+  --rose:#B8465A; --rose-soft:#FBEAEC;
+  --violet:#6E56A6; --violet-soft:#EEEAF7;
+  --radius:14px;
+  --mono:'JetBrains Mono','Noto Sans KR',monospace;
+  --sans:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.55;padding-bottom:60px;word-break:keep-all;overflow-wrap:break-word;}
+
+header{background:linear-gradient(155deg,var(--navy-deep) 0%,var(--navy) 62%,#2B4C7E 100%);color:#fff;padding:38px 28px 46px;position:relative;overflow:hidden;}
+header::after{content:'';position:absolute;right:-80px;top:-80px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.06) 0%,rgba(255,255,255,0) 70%);}
+.header-inner{position:relative;}
+.eyebrow{display:inline-block;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:#9FB3D6;font-weight:600;margin-bottom:10px;text-decoration:none;transition:color .15s;}
+.eyebrow:hover{color:#fff;text-decoration:underline;}
+header h1{margin:0 0 10px;font-size:clamp(22px,4vw,32px);font-weight:900;letter-spacing:-.01em;}
+header p{margin:0;color:#C7D4E8;font-size:14.5px;}
+
+.wrap{max-width:1248px;margin:0 auto;padding:0 24px;}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:28px;margin-top:32px;}
+.panel-title{font-size:16px;font-weight:800;color:var(--navy);margin:0 0 20px;}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr;}}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0;}
+.field label{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+.field input[type=date],.field input[type=text],.field input[type=number]{width:100%;max-width:100%;min-width:0;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;font-family:inherit;font-size:14px;color:var(--ink);background:#fff;outline:none;transition:border-color .15s;}
+.field input:focus{border-color:var(--teal);}
+.hint{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+
+.btn-row{margin-top:22px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;}
+.btn-primary{background:var(--teal);color:#fff;}
+.btn-primary:hover{background:#0C7069;}
+.btn-secondary{background:var(--card);color:var(--navy);border:2px solid var(--navy);}
+.btn-secondary:hover{background:#F0F4FA;}
+.btn-sm{padding:7px 14px;font-size:12.5px;}
+.btn-danger{background:var(--rose-soft);color:var(--rose);border:none;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;}
+.btn-danger:hover{background:#F5D3D9;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+
+.api-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;}
+.api-badge.loading{background:#EEF1F4;color:var(--ink-soft);}
+.api-badge.ok{background:var(--teal-soft);color:var(--teal);}
+.api-badge.fallback{background:var(--amber-soft);color:var(--amber);}
+.api-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+
+/* 커스텀 공휴일 */
+.custom-holiday-section{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);}
+.custom-holiday-title{font-size:13px;font-weight:700;color:var(--ink-soft);margin-bottom:10px;}
+.custom-holiday-input-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;}
+.custom-holiday-input-row input[type=date]{padding:9px 12px;border:1.5px solid var(--line);border-radius:9px;font-family:inherit;font-size:13px;outline:none;}
+.custom-holiday-input-row input[type=text]{padding:9px 12px;border:1.5px solid var(--line);border-radius:9px;font-family:inherit;font-size:13px;outline:none;flex:1;min-width:160px;}
+.custom-holiday-input-row input:focus{border-color:var(--teal);}
+.custom-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.custom-chip{display:inline-flex;align-items:center;gap:6px;background:var(--rose-soft);color:var(--rose);font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;}
+.custom-chip button{background:none;border:none;cursor:pointer;color:var(--rose);font-size:14px;line-height:1;padding:0;display:flex;}
+
+/* 태그 관리 */
+.tag-section{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);}
+.tag-title{font-size:13px;font-weight:700;color:var(--ink-soft);margin-bottom:10px;}
+.tag-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.tag-row input[type=color]{width:42px;height:34px;border:1px solid var(--line);border-radius:8px;padding:2px;background:#fff;cursor:pointer;}
+.tag-row .tag-name{flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px;outline:none;}
+.tag-row .tag-name:focus{border-color:var(--teal);}
+.tag-add-row{display:flex;gap:8px;align-items:center;margin-top:10px;}
+.tag-add-row input[type=text]{flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px;outline:none;}
+.tag-add-row input[type=text]:focus{border-color:var(--teal);}
+.tag-add-row input[type=color]{width:42px;height:34px;border:1px solid var(--line);border-radius:8px;padding:2px;background:#fff;cursor:pointer;}
+
+/* ── 스케줄(달력) ── */
+#scheduleWrap{margin-top:32px;display:none;}
+.sched-title{font-size:20px;font-weight:800;color:var(--navy);margin-bottom:4px;}
+.sched-note{font-size:13px;color:var(--ink-soft);margin-bottom:16px;}
+
+.cal-month{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:28px;background:#fff;}
+.cal-month-head{display:flex;align-items:baseline;gap:10px;font-size:19px;font-weight:800;color:var(--ink);padding:14px 18px;border-bottom:1px solid var(--line);}
+.cal-month-head .sub{font-size:12px;font-weight:600;color:var(--ink-soft);}
+.cal-weekday{display:flex;}
+.cal-weekday .wd{flex:1 1 0;min-width:0;text-align:center;font-size:12px;font-weight:700;color:var(--ink-soft);padding:9px 0;border-bottom:1px solid var(--line);border-right:1px solid var(--line);}
+.cal-weekday .wd:last-child{border-right:none;}
+.cal-weekday .wd.sun{color:#C0392B;}
+.cal-weekday .wd.sat{color:#2471A3;}
+
+.cal-week{position:relative;overflow:hidden;}
+.cal-days{display:flex;height:100%;}
+.day-cell{flex:1 1 0;min-width:0;position:relative;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:5px 6px;overflow:hidden;background:#fff;}
+.cal-days .day-cell:last-child{border-right:none;}
+.day-cell.inactive{background:#F7F8FA;}
+.day-cell.clickable{cursor:pointer;}
+.day-cell.clickable:hover{background:#F3FBFA;}
+.day-num{font-size:12px;font-weight:700;color:var(--ink);line-height:1.2;}
+.day-cell.sun .day-num{color:#C0392B;}
+.day-cell.sat .day-num{color:#2471A3;}
+.day-cell.inactive .day-num{color:#C2C8D0;}
+.day-holiday-inline{font-size:10px;color:#C0392B;font-weight:600;margin-left:5px;}
+
+.slot-sep{position:absolute;left:0;right:0;border-top:1px dashed #DCE0E6;pointer-events:none;z-index:1;}
+
+.event{position:absolute;z-index:2;height:18px;display:flex;align-items:center;gap:3px;font-size:10px;border-radius:5px;padding:0 4px;overflow:hidden;cursor:grab;line-height:1.4;box-sizing:border-box;}
+.event:hover{filter:brightness(.96);}
+.event.dragging{opacity:.45;}
+.day-cell.drop-target{outline:2px dashed var(--teal);outline-offset:-2px;background:#EAF8F6;}
+.ev-range{background:#eee;font-weight:600;}
+.ev-single{background:transparent;border-left:3px solid #888;border-radius:0 4px 4px 0;padding-left:5px;}
+.ev-dot{width:6px;height:6px;border-radius:2px;flex:none;}
+.ev-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#333;}
+
+.note-box{background:#FFFBF0;border:1px solid #F5E4B0;border-radius:10px;padding:14px 16px;font-size:12.5px;color:#7A5C00;margin-top:12px;line-height:1.6;}
+.note-box b{color:#5A4000;}
+.info-box{background:var(--teal-soft);border:1px solid #C0E8E4;border-radius:10px;padding:12px 16px;font-size:12px;color:#0A6B63;margin-top:12px;line-height:1.6;}
+
+/* ── 이벤트 편집 모달 ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,20,30,.45);display:none;align-items:center;justify-content:center;z-index:1000;}
+.modal{background:#fff;border-radius:16px;padding:26px;width:min(440px,92vw);box-shadow:0 24px 70px rgba(0,0,0,.28);}
+.modal-title{font-size:17px;font-weight:800;color:var(--navy);margin-bottom:18px;}
+.modal .field{margin-bottom:14px;}
+.modal .field label{display:block;font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;}
+.modal .seg{display:flex;gap:18px;margin-bottom:16px;font-size:13.5px;font-weight:600;}
+.modal .seg label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;}
+.modal input[type=text],.modal input[type=date],.modal select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:9px;font-family:inherit;font-size:14px;outline:none;background:#fff;}
+.modal input:focus,.modal select:focus{border-color:var(--teal);}
+.modal-btns{display:flex;gap:8px;align-items:center;margin-top:20px;}
+
+/* ── 프로그램 다운로드 버튼 ── */
+.program-download-row{display:flex;justify-content:flex-end;margin-top:24px;margin-bottom:-8px;}
+button.ghost{background:#fff;color:var(--navy);border:1.5px solid #C7CEDA;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:.15s background;}
+button.ghost:hover{background:#F1F4F8;}
+
+/* ── 사용 방법 가이드 패널 ── */
+.guide-panel{border:1px solid var(--line);border-radius:14px;background:var(--card);margin-top:20px;overflow:hidden;box-shadow:0 1px 3px rgba(20,30,50,.04);}
+.guide-toggle{width:100%;display:flex;align-items:center;gap:12px;padding:16px 22px;cursor:pointer;background:none;border:none;font-family:var(--sans);text-align:left;}
+.guide-toggle .gt-icon{font-size:15px;width:32px;height:32px;border-radius:50%;background:var(--teal-soft);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+.guide-toggle .gt-title{font-size:15px;font-weight:800;color:var(--ink);flex:1;}
+.guide-toggle .gt-hint{font-size:12.5px;color:var(--ink-soft);}
+.guide-toggle .gt-arrow{font-size:11px;color:var(--ink-soft);transition:.2s transform;flex:0 0 auto;}
+.guide-panel.open .gt-arrow{transform:rotate(180deg);}
+.guide-body{display:none;padding:0 22px 22px;border-top:1px solid var(--line);}
+.guide-panel.open .guide-body{display:block;}
+.guide-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:18px;}
+.guide-step{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 15px;}
+.guide-step .gs-num{font-family:var(--mono);font-size:10.5px;font-weight:800;color:var(--teal);letter-spacing:.08em;margin-bottom:6px;}
+.guide-step .gs-title{font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:7px;}
+.guide-step .gs-body{font-size:12.5px;color:var(--ink-soft);line-height:1.65;word-break:keep-all;}
+.guide-step .gs-body b{color:var(--ink);}
+.guide-tip{margin-top:14px;padding:13px 16px;background:var(--teal-soft);border-radius:10px;font-size:12.5px;color:var(--ink-soft);line-height:1.65;word-break:keep-all;}
+.guide-tip b{color:var(--teal);}
+
+footer.copyright{margin-top:40px;font-size:11.5px;color:#9AA2B1;text-align:center;}
+footer.copyright .copyright-link{color:#9AA2B1;text-decoration:underline;text-underline-offset:2px;}
+footer.copyright .copyright-link:hover{color:var(--teal);}
+
+/* ── 인쇄(PDF): 달마다 한 장, 가로 방향, 위쪽 정렬 ── */
+@media print{
+  header,.panel,footer.copyright,#eventModal,.no-print{display:none !important;}
+  body{background:#fff;padding:0;}
+  .wrap{max-width:none;margin:0;padding:0;}
+  #scheduleWrap{display:block !important;margin:0;}
+  .sched-title,.sched-note{padding:0 4mm;}
+  .cal-month{border:none;margin:0;border-radius:0;page-break-before:always;break-before:page;}
+  .cal-month:first-of-type{page-break-before:avoid;break-before:auto;}
+  .cal-month,.cal-week,.day-cell{page-break-inside:avoid;break-inside:avoid;}
+  .day-cell{min-height:70px;}
+  @page{size:A4 landscape;margin:10mm;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a class="eyebrow" href="https://zoryong.github.io/Sch-Prgm">슬기로운 학교생활</a>
+    <h1>스케줄표 생성기</h1>
+    <p>날짜 범위를 입력하면 공휴일이 반영된 달력형 스케줄표를 만들고, 이벤트를 자유롭게 입력할 수 있는 월간 스케줄표를 만듭니다.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="program-download-row">
+    <button class="ghost" id="downloadProgramBtn" type="button">⬇️ 이 프로그램 다운받기</button>
+  </div>
+
+  <div class="guide-panel" id="guidePanel">
+    <button class="guide-toggle" id="guideToggle" type="button">
+      <span class="gt-icon">📖</span>
+      <span class="gt-title">사용 방법</span>
+      <span class="gt-hint">처음 사용하신다면 클릭해서 확인하세요</span>
+      <span class="gt-arrow">▼</span>
+    </button>
+    <div class="guide-body">
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="gs-num">STEP 01</div>
+          <div class="gs-title">기간과 안내 메모 설정</div>
+          <div class="gs-body">스케줄표 <b>제목</b>과 <b>시작·종료 날짜</b>를 정하세요. <b>스케쥴 구분 칸</b>은 한 날짜 칸을 점선으로 몇 줄로 나눌지(=일정을 몇 개까지 나란히 표시할지) 정합니다. 필요하면 <b>태그 색상</b>과 <b>공휴일</b>을 직접 추가할 수 있습니다.</div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num">STEP 02</div>
+          <div class="gs-title">일정 추가 · 편집</div>
+          <div class="gs-body">[스케줄표 생성] 후, 날짜 칸을 <b>더블클릭</b>하면 일정 창이 열립니다. <b>당일/기간</b>을 고르고 태그와 내용을 입력하세요. 기존 일정은 <b>클릭</b>해 편집, <b>드래그</b>해 다른 날짜로 이동할 수 있습니다.</div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num">STEP 03</div>
+          <div class="gs-title">저장하기 · 내보내기</div>
+          <div class="gs-body"><b>[저장하기]</b>로 작업 내용을 브라우저에 보관하면 다음에 열 때 그대로 불러옵니다. <b>[엑셀로 내보내기]</b>·<b>[PDF 내보내기]</b>로 파일을 만들고, <b>[엑셀에서 가져오기]</b>로 저장한 엑셀을 다시 편집할 수 있습니다.</div>
+        </div>
+      </div>
+      <div class="guide-tip">
+        <b>당일 vs 기간.</b> 당일 일정은 이름 앞에 색상 태그로, 기간 일정은 여러 날에 걸친 배경색 막대로 표시됩니다.<br><br>
+        <b>PDF 내보내기.</b> 달마다 한 장씩, 가로 방향이 넓은 달력 형태로 저장됩니다.<br><br>
+        <b>초기화.</b> [초기화]를 누르면 입력한 모든 일정이 삭제됩니다. 필요하면 먼저 [저장하기] 또는 [엑셀로 내보내기]로 백업하세요.
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">📋 스케줄표 설정</div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="titleInput">스케줄표 제목</label>
+        <input type="text" id="titleInput" value="2026학년도 2학기 스케줄표">
+      </div>
+      <div class="field">
+        <label for="noteInput">안내 메모 (선택)</label>
+        <input type="text" id="noteInput" placeholder="예: ※ 일정은 변경될 수 있습니다.">
+      </div>
+      <div class="field">
+        <label for="startDate">시작 날짜</label>
+        <input type="date" id="startDate" value="2026-08-13">
+      </div>
+      <div class="field">
+        <label for="endDate">종료 날짜</label>
+        <input type="date" id="endDate" value="2027-01-05">
+        <span class="hint">시작~종료 날짜가 포함된 달을 달력으로 표시합니다.</span>
+      </div>
+      <div class="field">
+        <label for="slotsInput">스케쥴 구분 칸</label>
+        <input type="number" id="slotsInput" value="4" min="1" max="12" step="1">
+        <span class="hint">한 칸(날짜)을 점선으로 몇 줄로 나눌지 정합니다. (1~12)</span>
+      </div>
+    </div>
+
+    <!-- 태그 관리 -->
+    <div class="tag-section">
+      <div class="tag-title">🏷️ 태그 관리 (색상 클릭해서 변경)</div>
+      <div id="tagList"></div>
+      <div class="tag-add-row">
+        <input type="text" id="newTagName" placeholder="새 태그 이름 (예: 시험)" maxlength="16">
+        <input type="color" id="newTagColor" value="#2F6FE0">
+        <button class="btn btn-secondary btn-sm" onclick="addTag()">태그 추가</button>
+      </div>
+    </div>
+
+    <!-- 공휴일 커스텀 -->
+    <div class="custom-holiday-section">
+      <div class="custom-holiday-title">➕ 공휴일 직접 추가</div>
+      <div class="custom-holiday-input-row">
+        <input type="date" id="customDate">
+        <input type="text" id="customName" placeholder="예: 재량휴업일" maxlength="20">
+        <button class="btn btn-secondary btn-sm" onclick="addCustomHoliday()">추가</button>
+      </div>
+      <div class="custom-list" id="customList"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="generateBtn" onclick="startGenerate()">📅 스케줄표 생성</button>
+      <button class="btn btn-secondary" id="saveBtn" onclick="saveToStorage()">💾 저장하기</button>
+      <button class="btn btn-secondary" id="dlBtn" onclick="downloadXlsx()" disabled>⬇️ 엑셀로 내보내기</button>
+      <button class="btn btn-secondary" id="importBtn" onclick="document.getElementById('importFile').click()">⬆️ 엑셀에서 가져오기</button>
+      <button class="btn btn-secondary" id="pdfBtn" onclick="exportPdf()" disabled>🖨️ PDF 내보내기</button>
+      <button class="btn btn-secondary" id="resetBtn" onclick="resetAll()" style="color:var(--rose);border-color:var(--rose);">🗑️ 초기화</button>
+      <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(event)">
+      <span id="apiBadge" class="api-badge loading" style="display:none;"><span class="api-dot"></span></span>
+    </div>
+
+    <div class="info-box" id="apiInfo" style="display:none;"></div>
+  </div>
+
+  <div id="scheduleWrap">
+    <div style="margin-top:24px;" id="scheduleInner"></div>
+  </div>
+</div>
+
+<!-- 이벤트 편집 모달 -->
+<div id="eventModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">일정 추가</div>
+    <div class="seg">
+      <label><input type="radio" name="evType" value="single" checked onchange="toggleType()"> 당일 일정</label>
+      <label><input type="radio" name="evType" value="range" onchange="toggleType()"> 기간 일정</label>
+    </div>
+    <div class="field">
+      <label id="evStartLabel">날짜</label>
+      <input type="date" id="evStart">
+    </div>
+    <div class="field" id="evEndWrap" style="display:none;">
+      <label>종료 날짜</label>
+      <input type="date" id="evEnd">
+    </div>
+    <div class="field">
+      <label>태그</label>
+      <select id="evTag"></select>
+    </div>
+    <div class="field">
+      <label>내용</label>
+      <input type="text" id="evText" placeholder="예: 2차 지필평가">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-danger" id="evDelete" style="display:none;" onclick="deleteEvent()">삭제</button>
+      <span style="flex:1;"></span>
+      <button class="btn btn-secondary btn-sm" onclick="closeDialog()">취소</button>
+      <button class="btn btn-primary btn-sm" onclick="saveDialog()">저장</button>
+    </div>
+  </div>
+</div>
+
+<footer class="copyright">Copyright © 2026 <a href="mailto:physicsgon@gmail.com" class="copyright-link">physicsgon@gmail.com</a> . All rights reserved.</footer>
+
+<script>
+/* ══════════════════════════════════════════════
+   내장 공휴일 데이터 (2025 ~ 2027) — API 폴백용
+══════════════════════════════════════════════ */
+const BUILTIN_HOLIDAYS = {
+  '2025-01-01':'신정','2025-01-27':'설날 연휴(임시)','2025-01-28':'설날 연휴','2025-01-29':'설날','2025-01-30':'설날 연휴',
+  '2025-03-01':'삼일절','2025-03-03':'대체공휴일','2025-05-05':'어린이날·부처님오신날','2025-05-06':'대체공휴일',
+  '2025-06-03':'지방선거','2025-06-06':'현충일','2025-08-15':'광복절',
+  '2025-10-03':'개천절','2025-10-05':'추석 연휴','2025-10-06':'추석','2025-10-07':'추석 연휴','2025-10-08':'대체공휴일','2025-10-09':'한글날','2025-12-25':'크리스마스',
+  '2026-01-01':'신정','2026-02-16':'설날 연휴','2026-02-17':'설날','2026-02-18':'설날 연휴',
+  '2026-03-01':'삼일절','2026-03-02':'대체공휴일','2026-05-01':'노동절','2026-05-05':'어린이날','2026-05-24':'부처님오신날','2026-05-25':'대체공휴일',
+  '2026-06-03':'지방선거','2026-06-06':'현충일','2026-07-17':'제헌절','2026-08-15':'광복절','2026-08-17':'대체공휴일',
+  '2026-09-24':'추석 연휴','2026-09-25':'추석','2026-09-26':'추석 연휴',
+  '2026-10-03':'개천절','2026-10-09':'한글날','2026-12-25':'크리스마스',
+  '2027-01-01':'신정','2027-02-06':'설날 연휴','2027-02-07':'설날','2027-02-08':'설날 연휴',
+  '2027-03-01':'삼일절','2027-05-01':'노동절','2027-05-05':'어린이날','2027-05-13':'부처님오신날',
+  '2027-06-06':'현충일','2027-07-17':'제헌절','2027-07-19':'대체공휴일','2027-08-15':'광복절','2027-08-16':'대체공휴일',
+  '2027-10-03':'개천절','2027-10-04':'대체공휴일','2027-10-09':'한글날','2027-10-14':'추석 연휴','2027-10-15':'추석','2027-10-16':'추석 연휴','2027-12-25':'크리스마스','2027-12-27':'대체공휴일',
+};
+
+let apiHolidaysByYear = {};
+let apiLoadedYears = new Set();
+let apiSource = 'loading';
+
+/* 사용자가 직접 추가한 공휴일 */
+let customHolidays = {};
+
+/* 태그 & 이벤트 상태 */
+let tags = [
+  {id:'t_acad', name:'학사', color:'#2F6FE0'},
+  {id:'t_class',name:'수업', color:'#12967A'},
+  {id:'t_work', name:'업무', color:'#C8791C'},
+  {id:'t_etc',  name:'기타', color:'#8E44AD'},
+];
+let events = [];      // {id,type:'single'|'range',start,end,tag,text}
+let editingId = null; // 편집 중인 이벤트 id
+let draggingId = null; // 드래그 중인 이벤트 id
+let justDragged = false; // 드래그 직후 클릭(편집) 방지
+
+/* 생성 시점의 범위/구분칸 (엑셀/PDF에서 재사용) */
+let curStart = null, curEnd = null, curSlots = 4;
+
+const DAY_KR = ['일','월','화','수','목','금','토'];
+
+/* ══════════════════════════════════════════════
+   유틸
+══════════════════════════════════════════════ */
+function el(id){ return document.getElementById(id); }
+function div(cls){ const e=document.createElement('div'); if(cls) e.className=cls; return e; }
+function genId(){ return 'x'+Math.random().toString(36).slice(2,9)+Date.now().toString(36); }
+function toKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function parseDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function weekStart(d){ const c=new Date(d); c.setDate(c.getDate()-c.getDay()); return c; }
+function maxDate(arr){ return arr.reduce((a,b)=> b>a?b:a); }
+function minDate(arr){ return arr.reduce((a,b)=> b<a?b:a); }
+
+function hexToRgb(hex){
+  hex=String(hex||'#888888').replace('#','');
+  if(hex.length===3) hex=hex.split('').map(c=>c+c).join('');
+  const n=parseInt(hex,16);
+  return {r:(n>>16)&255, g:(n>>8)&255, b:n&255};
+}
+function rgba(hex,a){ const {r,g,b}=hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }
+/* 흰색과 t(0~1)만큼 섞은 밝은 색 (엑셀 solid fill용, # 없이 반환) */
+function blendWhite(hex,t){
+  const {r,g,b}=hexToRgb(hex);
+  const mix=v=>Math.round(v+(255-v)*t).toString(16).padStart(2,'0');
+  return (mix(r)+mix(g)+mix(b)).toUpperCase();
+}
+
+/* ══════════════════════════════════════════════
+   공휴일 조회 / API
+══════════════════════════════════════════════ */
+function getHolidayName(key){
+  if(customHolidays[key]) return customHolidays[key];
+  const year=key.slice(0,4);
+  if(apiLoadedYears.has(year) && apiHolidaysByYear[year]?.[key]) return apiHolidaysByYear[year][key];
+  return BUILTIN_HOLIDAYS[key] || null;
+}
+async function fetchHolidaysForYear(year){
+  const y=String(year);
+  if(apiLoadedYears.has(y)) return true;
+  try{
+    const res=await fetch(`https://holidays.hyunbin.page/${y}.json`);
+    if(!res.ok) return false;
+    const json=await res.json();
+    const map={};
+    for(const [date,val] of Object.entries(json)) map[date]=Array.isArray(val)?val.join('·'):val;
+    apiHolidaysByYear[y]=map; apiLoadedYears.add(y);
+    return true;
+  }catch{ return false; }
+}
+async function initHolidayApi(){
+  const ok=await fetchHolidaysForYear(new Date().getFullYear());
+  const badge=el('apiBadge'), info=el('apiInfo');
+  if(ok){
+    apiSource='api';
+    badge.style.display='none';
+    info.style.display='none';
+  }else{
+    apiSource='builtin';
+    badge.style.display='';
+    badge.className='api-badge fallback';
+    badge.innerHTML='<span class="api-dot"></span>내장 데이터 사용 중';
+    info.style.display='block';
+    info.innerHTML='⚠️ 공휴일 API에 연결하지 못했습니다. <b>2025~2027년 내장 데이터</b>를 사용합니다. 그 외 연도는 "공휴일 직접 추가"로 입력해 주세요.';
+  }
+  // API 로드 후, 이미 표가 그려져 있으면 공휴일 반영을 위해 다시 렌더
+  if(ok && el('scheduleWrap').style.display!=='none') render();
+}
+
+/* ══════════════════════════════════════════════
+   커스텀 공휴일
+══════════════════════════════════════════════ */
+function addCustomHoliday(){
+  const d=el('customDate').value, n=el('customName').value.trim();
+  if(!d||!n){ alert('날짜와 이름을 모두 입력해주세요.'); return; }
+  customHolidays[d]=n; renderCustomList();
+  el('customDate').value=''; el('customName').value='';
+  if(el('scheduleWrap').style.display!=='none') render();
+}
+function removeCustomHoliday(key){
+  delete customHolidays[key]; renderCustomList();
+  if(el('scheduleWrap').style.display!=='none') render();
+}
+function renderCustomList(){
+  el('customList').innerHTML = Object.entries(customHolidays).sort().map(([k,n])=>
+    `<span class="custom-chip">${k.slice(5)} ${n}<button onclick="removeCustomHoliday('${k}')" title="삭제">✕</button></span>`
+  ).join('');
+}
+
+/* ══════════════════════════════════════════════
+   태그 관리
+══════════════════════════════════════════════ */
+function getTag(id){ return tags.find(t=>t.id===id); }
+function renderTagList(){
+  const box=el('tagList'); box.innerHTML='';
+  tags.forEach(t=>{
+    const row=div('tag-row');
+    const color=document.createElement('input'); color.type='color'; color.value=t.color;
+    color.addEventListener('input',()=>{ t.color=color.value; if(el('scheduleWrap').style.display!=='none') render(); });
+    const name=document.createElement('input'); name.type='text'; name.className='tag-name'; name.value=t.name;
+    name.addEventListener('input',()=>{ t.name=name.value; });
+    const del=document.createElement('button'); del.className='btn-danger'; del.textContent='삭제';
+    del.addEventListener('click',()=>{ tags=tags.filter(x=>x.id!==t.id); renderTagList(); if(el('scheduleWrap').style.display!=='none') render(); });
+    row.appendChild(color); row.appendChild(name); row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+function addTag(){
+  const name=el('newTagName').value.trim(), color=el('newTagColor').value;
+  if(!name){ alert('태그 이름을 입력해주세요.'); return; }
+  tags.push({id:genId(),name,color});
+  el('newTagName').value='';
+  renderTagList();
+}
+
+/* ══════════════════════════════════════════════
+   달/주 모델 계산 (렌더·엑셀 공용)
+══════════════════════════════════════════════ */
+function monthsInRange(start,end){
+  const res=[]; let d=new Date(start.getFullYear(),start.getMonth(),1);
+  const last=new Date(end.getFullYear(),end.getMonth(),1);
+  while(d<=last){ res.push(new Date(d)); d.setMonth(d.getMonth()+1); }
+  return res;
+}
+function assignLanes(segs){
+  segs.sort((a,b)=> (a.startCol-b.startCol) || ((b.endCol-b.startCol)-(a.endCol-a.startCol)));
+  const laneEnd=[];
+  segs.forEach(s=>{
+    let placed=false;
+    for(let i=0;i<laneEnd.length;i++){ if(laneEnd[i] < s.startCol){ s.lane=i; laneEnd[i]=s.endCol; placed=true; break; } }
+    if(!placed){ s.lane=laneEnd.length; laneEnd.push(s.endCol); }
+  });
+}
+function computeMonthModel(md){
+  const y=md.getFullYear(), m=md.getMonth();
+  const first=new Date(y,m,1), last=new Date(y,m+1,0);
+  const gridStart=weekStart(first);
+  const weeks=[];
+  let cur=new Date(gridStart);
+  while(true){
+    const days=[];
+    for(let i=0;i<7;i++){
+      const dt=new Date(cur), key=toKey(dt);
+      const inMonth=dt.getMonth()===m;
+      const inRange=dt>=curStart && dt<=curEnd;
+      days.push({date:dt,key,inMonth,inRange,active:inMonth&&inRange,isSun:i===0,isSat:i===6,holiday:getHolidayName(key)});
+      cur.setDate(cur.getDate()+1);
+    }
+    const wkStart=days[0].date, wkEnd=days[6].date;
+    const segs=[];
+    events.forEach(ev=>{
+      const es=parseDate(ev.start), ee=parseDate(ev.end||ev.start);
+      const segS=maxDate([es,wkStart,first,curStart]);
+      const segE=minDate([ee,wkEnd,last,curEnd]);
+      if(segS<=segE) segs.push({ev,startCol:segS.getDay(),endCol:segE.getDay()});
+    });
+    assignLanes(segs);
+    weeks.push({days,segs});
+    if(cur>last && cur.getDay()===0) break;
+  }
+  return {y,m,label:`${y}년 ${m+1}월`,weeks};
+}
+
+/* ══════════════════════════════════════════════
+   렌더링
+══════════════════════════════════════════════ */
+function renderMonth(model,N){
+  const monthEl=div('cal-month');
+  const head=div('cal-month-head');
+  head.innerHTML=`${model.label}`;
+  monthEl.appendChild(head);
+
+  const wd=div('cal-weekday');
+  DAY_KR.forEach((d,i)=>{ const c=div('wd'+(i===0?' sun':i===6?' sat':'')); c.textContent=d; wd.appendChild(c); });
+  monthEl.appendChild(wd);
+
+  const DATE_H=26, SLOT_H=20; // 날짜줄 높이, 슬롯 한 칸 높이(px)
+  model.weeks.forEach(wk=>{
+    const wkEl=div('cal-week');
+    wkEl.style.height=(DATE_H + N*SLOT_H)+'px';
+
+    // 날짜 배경 셀 (flex 7칸, 더블클릭 → 추가)
+    const daysWrap=div('cal-days');
+    wk.days.forEach((di,i)=>{
+      const cell=div('day-cell');
+      if(!di.active) cell.classList.add('inactive');
+      if(di.active){
+        if(di.holiday||di.isSun) cell.classList.add('sun');
+        else if(di.isSat) cell.classList.add('sat');
+        cell.classList.add('clickable');
+        cell.dataset.date=di.key;
+        cell.addEventListener('dblclick',()=>openDialog(null,di.key));
+        // 드래그앤드롭: 다른 날짜 칸으로 일정 이동
+        cell.addEventListener('dragover',(e)=>{ if(draggingId){ e.preventDefault(); cell.classList.add('drop-target'); } });
+        cell.addEventListener('dragleave',()=>cell.classList.remove('drop-target'));
+        cell.addEventListener('drop',(e)=>{ e.preventDefault(); cell.classList.remove('drop-target'); dropEventOn(di.key); });
+      }
+      const num=div('day-num');
+      num.textContent = di.date.getDate()===1 ? `${di.date.getMonth()+1}월 1일` : `${di.date.getDate()}`;
+      if(di.active && di.holiday){ const h=document.createElement('span'); h.className='day-holiday-inline'; h.textContent=di.holiday; num.appendChild(h); }
+      cell.appendChild(num);
+      daysWrap.appendChild(cell);
+    });
+    wkEl.appendChild(daysWrap);
+
+    // 슬롯 점선 구분 (절대 위치 가로선)
+    for(let k=0;k<N;k++){
+      const sep=div('slot-sep'); sep.style.top=(DATE_H + k*SLOT_H)+'px';
+      wkEl.appendChild(sep);
+    }
+
+    // 이벤트 (절대 위치 막대 — html2canvas 캡처 안정)
+    wk.segs.forEach(s=>{
+      const tag=getTag(s.ev.tag);
+      const color=tag?tag.color:'#888888';
+      const isRange=s.ev.type==='range';
+      const evEl=div('event '+(isRange?'ev-range':'ev-single'));
+      const span=s.endCol-s.startCol+1;
+      evEl.style.left=`calc(${s.startCol}/7*100% + 1px)`;
+      evEl.style.width=`calc(${span}/7*100% - 2px)`;
+      evEl.style.top=(DATE_H + s.lane*SLOT_H + 1)+'px';
+      if(isRange){ evEl.style.background=rgba(color,.25); }
+      else { evEl.style.borderLeftColor=color; evEl.style.background=rgba(color,.08); }
+      const dot=document.createElement('span'); dot.className='ev-dot'; dot.style.background=color; evEl.appendChild(dot);
+      const tx=document.createElement('span'); tx.className='ev-text'; tx.textContent=s.ev.text; evEl.appendChild(tx);
+      evEl.title=(tag?`[${tag.name}] `:'')+s.ev.text+' (드래그해서 이동)';
+      evEl.addEventListener('click',(e)=>{ e.stopPropagation(); if(!justDragged) openDialog(s.ev,null); });
+      evEl.draggable=true;
+      evEl.addEventListener('dragstart',(e)=>{ draggingId=s.ev.id; justDragged=true; evEl.classList.add('dragging'); if(e.dataTransfer){ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',s.ev.id); } });
+      evEl.addEventListener('dragend',()=>{ evEl.classList.remove('dragging'); draggingId=null; setTimeout(()=>{ justDragged=false; },0); });
+      wkEl.appendChild(evEl);
+    });
+
+    monthEl.appendChild(wkEl);
+  });
+  return monthEl;
+}
+
+function render(){
+  const startVal=el('startDate').value, endVal=el('endDate').value;
+  if(!startVal||!endVal){ alert('시작/종료 날짜를 모두 입력해주세요.'); return false; }
+  curStart=parseDate(startVal); curEnd=parseDate(endVal);
+  if(curStart>curEnd){ alert('시작 날짜가 종료 날짜보다 늦습니다.'); return false; }
+  curSlots=Math.max(1,Math.min(12,parseInt(el('slotsInput').value,10)||4));
+
+  const inner=el('scheduleInner'); inner.innerHTML='';
+  const title=el('titleInput').value.trim()||'스케줄표';
+  const note=el('noteInput').value.trim();
+  const t=div('sched-title'); t.textContent=title; inner.appendChild(t);
+  if(note){ const n=div('sched-note'); n.textContent=note; inner.appendChild(n); }
+
+  monthsInRange(curStart,curEnd).forEach(md=>{ inner.appendChild(renderMonth(computeMonthModel(md),curSlots)); });
+
+  el('scheduleWrap').style.display='block';
+  el('dlBtn').disabled=false; el('pdfBtn').disabled=false;
+  return true;
+}
+
+async function startGenerate(){
+  const startVal=el('startDate').value, endVal=el('endDate').value;
+  if(!startVal||!endVal){ alert('시작/종료 날짜를 모두 입력해주세요.'); return; }
+  const start=parseDate(startVal), end=parseDate(endVal);
+  if(start>end){ alert('시작 날짜가 종료 날짜보다 늦습니다.'); return; }
+
+  const btn=el('generateBtn'); btn.disabled=true; btn.textContent='⏳ 공휴일 로딩 중…';
+  if(apiSource==='api'){
+    const years=new Set();
+    for(let y=start.getFullYear(); y<=end.getFullYear(); y++) years.add(y);
+    await Promise.all([...years].map(y=>fetchHolidaysForYear(y)));
+  }
+  btn.disabled=false; btn.textContent='📅 스케줄표 생성';
+
+  if(render()) el('scheduleWrap').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ══════════════════════════════════════════════
+   이벤트 편집 모달
+══════════════════════════════════════════════ */
+function populateTagSelect(){
+  el('evTag').innerHTML = tags.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+}
+function toggleType(){
+  const t=document.querySelector('input[name=evType]:checked').value;
+  el('evEndWrap').style.display = t==='range' ? '' : 'none';
+  el('evStartLabel').textContent = t==='range' ? '시작 날짜' : '날짜';
+}
+function setType(t){
+  const r=document.querySelector(`input[name=evType][value="${t}"]`);
+  if(r) r.checked=true;
+  toggleType();
+}
+function openDialog(ev,dateKey){
+  populateTagSelect();
+  editingId = ev ? ev.id : null;
+  el('modalTitle').textContent = ev ? '일정 편집' : '일정 추가';
+  if(ev){
+    setType(ev.type);
+    el('evStart').value=ev.start;
+    el('evEnd').value=ev.end||ev.start;
+    if(getTag(ev.tag)) el('evTag').value=ev.tag;
+    el('evText').value=ev.text||'';
+    el('evDelete').style.display='';
+  }else{
+    setType('single');
+    el('evStart').value=dateKey;
+    el('evEnd').value=dateKey;
+    el('evText').value='';
+    el('evDelete').style.display='none';
+  }
+  el('eventModal').style.display='flex';
+  setTimeout(()=>el('evText').focus(),50);
+}
+function closeDialog(){ el('eventModal').style.display='none'; editingId=null; }
+function saveDialog(){
+  const type=document.querySelector('input[name=evType]:checked').value;
+  const start=el('evStart').value;
+  const end = type==='range' ? el('evEnd').value : start;
+  const tag=el('evTag').value;
+  const text=el('evText').value.trim();
+  if(!start){ alert('날짜를 입력해주세요.'); return; }
+  if(type==='range'){
+    if(!end){ alert('종료 날짜를 입력해주세요.'); return; }
+    if(parseDate(end)<parseDate(start)){ alert('종료 날짜가 시작 날짜보다 빠릅니다.'); return; }
+  }
+  if(!text){ alert('내용을 입력해주세요.'); return; }
+  if(editingId){
+    const e2=events.find(x=>x.id===editingId);
+    if(e2) Object.assign(e2,{type,start,end,tag,text});
+  }else{
+    events.push({id:genId(),type,start,end,tag,text});
+  }
+  closeDialog(); render();
+}
+function deleteEvent(){
+  if(editingId) events=events.filter(x=>x.id!==editingId);
+  closeDialog(); render();
+}
+
+/* 드래그앤드롭: 일정을 드롭한 날짜로 이동(기간은 길이 유지) */
+function dropEventOn(dateKey){
+  if(!draggingId) return;
+  const ev=events.find(x=>x.id===draggingId);
+  draggingId=null;
+  if(!ev) return;
+  const newStart=parseDate(dateKey);
+  if(ev.type==='range'){
+    const dur=Math.round((parseDate(ev.end||ev.start)-parseDate(ev.start))/86400000);
+    const newEnd=new Date(newStart); newEnd.setDate(newEnd.getDate()+dur);
+    ev.start=toKey(newStart); ev.end=toKey(newEnd);
+  }else{
+    ev.start=toKey(newStart); ev.end=ev.start;
+  }
+  render();
+}
+
+/* ══════════════════════════════════════════════
+   엑셀 내보내기 (xlsx-js-style, 화면 스타일 반영)
+══════════════════════════════════════════════ */
+function stateSnapshot(){
+  return {
+    version:3,
+    title:el('titleInput').value,
+    note:el('noteInput').value,
+    start:el('startDate').value,
+    end:el('endDate').value,
+    slots:parseInt(el('slotsInput').value,10)||curSlots||4,
+    tags, events, customHolidays
+  };
+}
+function xborder(){ const s={style:'thin',color:{rgb:'CCCCCC'}}; return {top:s,bottom:s,left:s,right:s}; }
+
+function buildMonthSheet(md){
+  const model=computeMonthModel(md);
+  const N=curSlots;
+  const ws={}; const merges=[]; const rows=[];
+  let r=0;
+  const put=(rr,cc,v,s)=>{ ws[XLSX.utils.encode_cell({r:rr,c:cc})]={v:v,t:'s',s:s}; };
+
+  put(r,0, el('titleInput').value.trim()||'스케줄표',
+      {font:{bold:true,sz:15,color:{rgb:'213863'}},alignment:{horizontal:'left',vertical:'center'}});
+  merges.push({s:{r,c:0},e:{r,c:6}}); rows[r]={hpx:26}; r++;
+
+  const note=el('noteInput').value.trim();
+  if(note){ put(r,0,note,{font:{sz:10,color:{rgb:'57616F'}}}); merges.push({s:{r,c:0},e:{r,c:6}}); rows[r]={hpx:18}; r++; }
+
+  put(r,0,model.label,{font:{bold:true,sz:13,color:{rgb:'0F8A82'}},alignment:{vertical:'center'}});
+  merges.push({s:{r,c:0},e:{r,c:6}}); rows[r]={hpx:22}; r++;
+
+  const dayColors=['9B2335','213863','213863','213863','213863','213863','1A4A8A'];
+  DAY_KR.forEach((d,i)=>{
+    put(r,i,d,{font:{bold:true,sz:11,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:dayColors[i]}},alignment:{horizontal:'center',vertical:'center'},border:xborder()});
+  });
+  rows[r]={hpx:20}; r++;
+
+  model.weeks.forEach(wk=>{
+    const dateRow=r;
+    wk.days.forEach((di,i)=>{
+      const fill=!di.active?'F0F2F5':(di.holiday||di.isSun)?'FFF5F5':di.isSat?'F5F8FF':'F8FAFC';
+      const font=!di.active?'BBBBBB':(di.holiday||di.isSun)?'C0392B':di.isSat?'2471A3':'1B2430';
+      let label='';
+      if(di.active){
+        label = di.date.getDate()===1 ? `${di.date.getMonth()+1}월 1일` : `${di.date.getDate()}`;
+        if(di.holiday) label += `  ★${di.holiday}`;
+      }
+      put(dateRow,i,label,{font:{bold:true,sz:10,color:{rgb:font}},fill:{fgColor:{rgb:fill}},alignment:{horizontal:'left',vertical:'center',wrapText:true},border:xborder()});
+    });
+    rows[dateRow]={hpx:18};
+
+    for(let k=0;k<N;k++){
+      const rr=dateRow+1+k; rows[rr]={hpx:18};
+      wk.days.forEach((di,i)=>{
+        const fill=!di.active?'F0F2F5':'FFFFFF';
+        put(rr,i,'',{fill:{fgColor:{rgb:fill}},border:xborder()});
+      });
+    }
+
+    wk.segs.forEach(s=>{
+      if(s.lane>=N) return; // 구분 칸 초과분은 엑셀에서 생략
+      const rr=dateRow+1+s.lane;
+      const tag=getTag(s.ev.tag);
+      const light = tag ? blendWhite(tag.color,0.72) : 'EAEAEA';
+      const val=(tag?'● ':'')+s.ev.text;
+      put(rr,s.startCol,val,{font:{sz:10,bold:s.ev.type==='range',color:{rgb:'333333'}},fill:{fgColor:{rgb:light}},alignment:{horizontal:'left',vertical:'center'},border:xborder()});
+      for(let c=s.startCol+1;c<=s.endCol;c++){ put(rr,c,'',{fill:{fgColor:{rgb:light}},border:xborder()}); }
+      if(s.endCol>s.startCol) merges.push({s:{r:rr,c:s.startCol},e:{r:rr,c:s.endCol}});
+    });
+
+    r=dateRow+1+N;
+    rows[r]={hpx:6}; r++; // 주 사이 간격
+  });
+
+  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(r,1),c:6}});
+  ws['!merges']=merges;
+  ws['!cols']=Array(7).fill({wch:28});
+  ws['!rows']=rows;
+  return {ws, name: model.label.replace(/[\\\/\*\?\[\]:]/g,'').slice(0,31)};
+}
+
+function downloadXlsx(){
+  if(el('scheduleWrap').style.display==='none'){ if(!render()) return; }
+  const wb=XLSX.utils.book_new();
+  const used=new Set();
+  monthsInRange(curStart,curEnd).forEach(md=>{
+    let {ws,name}=buildMonthSheet(md);
+    let base=name, i=2; while(used.has(name)){ name=(base+' ('+i+')').slice(0,31); i++; }
+    used.add(name);
+    XLSX.utils.book_append_sheet(wb,ws,name);
+  });
+  // 재가져오기용 데이터 시트 — Excel 탭에 보이지 않도록 완전 숨김(veryHidden) 처리
+  const dataWs=XLSX.utils.aoa_to_sheet([[JSON.stringify(stateSnapshot())]]);
+  XLSX.utils.book_append_sheet(wb,dataWs,'__schedule__');
+  wb.Workbook = wb.Workbook || {};
+  wb.Workbook.Sheets = wb.SheetNames.map(n=>({name:n, Hidden: n==='__schedule__' ? 2 : 0}));
+
+  const title=el('titleInput').value.trim()||'스케줄표';
+  const s=el('startDate').value.replace(/-/g,'').slice(2), e2=el('endDate').value.replace(/-/g,'').slice(2);
+  XLSX.writeFile(wb,`${title}_${s}-${e2}.xlsx`);
+}
+
+/* ══════════════════════════════════════════════
+   엑셀에서 가져오기
+══════════════════════════════════════════════ */
+function importXlsx(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    try{
+      const data=new Uint8Array(ev.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      if(wb.SheetNames.includes('__schedule__')){
+        const ws=wb.Sheets['__schedule__'];
+        const cell=ws['A1'];
+        if(cell && cell.v){
+          applyState(JSON.parse(cell.v));
+          alert('스케줄을 불러왔습니다.');
+        }else{
+          alert('이 파일에는 편집 가능한 스케줄 데이터가 없습니다.');
+        }
+      }else{
+        alert('이 프로그램에서 저장한 엑셀 파일만 다시 불러올 수 있습니다.\n(숨김 시트 "__schedule__"가 필요합니다.)');
+      }
+    }catch(err){
+      alert('파일을 읽는 중 오류가 발생했습니다: '+err.message);
+    }
+    e.target.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+function applyState(st){
+  el('titleInput').value=st.title||'';
+  el('noteInput').value=st.note||'';
+  el('startDate').value=st.start||'';
+  el('endDate').value=st.end||'';
+  el('slotsInput').value=st.slots||4;
+  if(Array.isArray(st.tags)&&st.tags.length) tags=st.tags;
+  events=Array.isArray(st.events)?st.events:[];
+  customHolidays=st.customHolidays||{};
+  renderTagList(); renderCustomList();
+  render();
+}
+
+/* ══════════════════════════════════════════════
+   PDF 내보내기 (달마다 한 장, 가로 방향, 자동 다운로드)
+══════════════════════════════════════════════ */
+async function exportPdf(){
+  if(el('scheduleWrap').style.display==='none'){ if(!render()) return; }
+  if(!window.jspdf || !window.html2canvas){ alert('PDF 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.'); return; }
+
+  const months=[...document.querySelectorAll('.cal-month')];
+  if(!months.length){ alert('먼저 스케줄표를 생성해주세요.'); return; }
+
+  const btn=el('pdfBtn'); const label=btn.textContent;
+  btn.disabled=true; btn.textContent='⏳ PDF 생성 중…';
+  try{
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+    const pageW=pdf.internal.pageSize.getWidth();
+    const pageH=pdf.internal.pageSize.getHeight();
+    const margin=10;
+    const maxW=pageW-margin*2, maxH=pageH-margin*2;
+
+    for(let i=0;i<months.length;i++){
+      const canvas=await html2canvas(months[i],{scale:2,backgroundColor:'#ffffff',useCORS:true});
+      let w=maxW, h=canvas.height*w/canvas.width;
+      if(h>maxH){ h=maxH; w=canvas.width*h/canvas.height; } // 페이지 안에 맞추기
+      if(i>0) pdf.addPage();
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, w, h); // 위쪽부터 정렬
+    }
+    const title=el('titleInput').value.trim()||'스케줄표';
+    const s=el('startDate').value.replace(/-/g,'').slice(2), e2=el('endDate').value.replace(/-/g,'').slice(2);
+    pdf.save(`${title}_${s}-${e2}.pdf`);
+  }catch(err){
+    alert('PDF 생성 중 오류가 발생했습니다: '+err.message);
+  }finally{
+    btn.disabled=false; btn.textContent=label;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   저장하기 / 초기화 (브라우저 localStorage)
+══════════════════════════════════════════════ */
+const LS_KEY = 'scheduleMaker.v3';
+
+/** GitHub 배포 시 처음 열 때 보여줄 기본 스케줄 (엑셀 내보내기 기준) */
+const DEFAULT_STATE = {"version":3,"title":"2026학년도 2학기 스케줄표","note":"","start":"2026-08-13","end":"2027-01-05","slots":4,"tags":[{"id":"t_acad","name":"학사","color":"#2F6FE0"},{"id":"t_class","name":"수업","color":"#12967A"},{"id":"t_work","name":"업무","color":"#C8791C"},{"id":"t_etc","name":"기타","color":"#8E44AD"}],"events":[{"id":"xxkm3bl1mrg22xxo","type":"single","start":"2026-08-13","end":"2026-08-13","tag":"t_acad","text":"개학식"},{"id":"xpe58uwcmrg23x7w","type":"single","start":"2026-09-01","end":"2026-09-01","tag":"t_acad","text":"전국연합(1,2)"},{"id":"x5zvygz7mrg241ui","type":"single","start":"2026-09-01","end":"2026-09-01","tag":"t_acad","text":"수능모의(3)"},{"id":"xtpn32ipmrg250x0","type":"range","start":"2026-10-01","end":"2026-10-02","tag":"t_acad","text":"1차 지필평가"},{"id":"x63fnysgmrg25g00","type":"range","start":"2026-10-05","end":"2026-10-06","tag":"t_acad","text":"1차 지필평가"},{"id":"x361vgfdmrg25qtd","type":"single","start":"2026-10-20","end":"2026-10-20","tag":"t_acad","text":"전국연합(1,2,3)"},{"id":"xunskrvxmrg265ol","type":"single","start":"2026-11-19","end":"2026-11-19","tag":"t_acad","text":"대학수학능력시험"},{"id":"xzcgp2tsmrg26zwj","type":"range","start":"2026-12-10","end":"2026-12-11","tag":"t_acad","text":"2차 지필평가(1,2)"},{"id":"xe8hidmtmrg279ph","type":"range","start":"2026-12-14","end":"2026-12-16","tag":"t_acad","text":"2차 지필평가(1,2)"},{"id":"xtpe91j2mrg27k0a","type":"single","start":"2026-12-29","end":"2026-12-29","tag":"t_acad","text":"축제"},{"id":"xv2zeqqqmrg27q1v","type":"single","start":"2027-01-05","end":"2027-01-05","tag":"t_acad","text":"종업식/졸업식"}],"customHolidays":{"2026-11-20":"재량휴업일"}};
+
+function loadInitialState(){
+  if(loadFromStorage()) return;
+  applyState(DEFAULT_STATE);
+}
+
+function saveToStorage(){
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify(stateSnapshot()));
+    const btn=el('saveBtn'); const label=btn.textContent;
+    btn.textContent='✅ 저장됨';
+    setTimeout(()=>{ btn.textContent=label; }, 1500);
+  }catch(err){
+    alert('저장에 실패했습니다: '+err.message+'\n(브라우저의 저장소가 꽉 찼거나 사용할 수 없는 상태일 수 있습니다.)');
+  }
+}
+
+function loadFromStorage(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(!raw) return false;
+    applyState(JSON.parse(raw));
+    return true;
+  }catch{ return false; }
+}
+
+function resetAll(){
+  const msg='⚠️ 초기화 경고\n\n입력한 모든 일정이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.\n(태그·공휴일·날짜 설정은 그대로 유지됩니다.)\n\n정말 모든 일정을 삭제하시겠습니까?';
+  if(!confirm(msg)) return;
+  events=[];
+  try{ localStorage.removeItem(LS_KEY); }catch{}
+  if(el('scheduleWrap').style.display!=='none') render();
+  alert('모든 일정이 삭제되었습니다.');
+}
+
+/* 페이지 로드 시점의 원본 HTML을 캡처(프로그램 다운로드용) */
+const ORIGINAL_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+/* 사용 방법 토글 */
+el('guideToggle').addEventListener('click',()=>{ el('guidePanel').classList.toggle('open'); });
+
+/* 이 프로그램 다운받기 */
+el('downloadProgramBtn').addEventListener('click',()=>{
+  const blob=new Blob([ORIGINAL_HTML],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='학기_스케줄표_생성기.html';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+});
+
+/* 모달 바깥 클릭 시 닫기 */
+el('eventModal').addEventListener('click',(e)=>{ if(e.target===el('eventModal')) closeDialog(); });
+
+/* 초기화 */
+renderTagList();
+initHolidayApi();
+loadInitialState(); // 저장된 작업이 없으면 기본 스케줄 표시
+</script>
+</body>
+</html>
